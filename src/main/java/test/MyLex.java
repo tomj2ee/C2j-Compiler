@@ -1,16 +1,11 @@
 package test;
 
-public class MyLex {
+import java.util.ArrayList;
+import java.util.List;
 
-    public static final int EOI = 0;
-    public static final int SEMI = 1; //分号
-    public static final int PLUS = 2; //+
-    public static final int SUB = 3; //-
-    public static final int TIMES = 4; // *
-    public static final int DIV = 5; // /
-    public static final int LP = 6; // (
-    public static final int RP = 7; //  )
-    public static final int NUM_OR_ID = 8;// 数字或者id
+import static test.MyToken.*;
+
+public class MyLex {
 
 
     private String buffer;
@@ -20,11 +15,17 @@ public class MyLex {
     private int tokenType = -1;
 
 
-    public void runLexer() {
-        while (!match(EOI)) {
+    public List<MyToken> runLexer() {
+        List<MyToken> allToken = new ArrayList<>();
+        while (!match(MyToken.EOI)) {
             advance();
             System.out.println("Token: " + token() + " ,Symbol: " + yytext);
+            MyToken m = new MyToken();
+            m.tokenType = tokenType;
+            m.text = yytext;
+            allToken.add(m);
         }
+        return allToken;
     }
 
     private String token() {
@@ -104,7 +105,7 @@ public class MyLex {
         return Character.isDigit(c) || Character.isAlphabetic(c);
     }
 
-    private void setInput(String s) {
+    public void setInput(String s) {
         this.buffer = s;
         this.curIndex = -1;
         this.eIndex = s.length();
