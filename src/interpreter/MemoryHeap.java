@@ -35,15 +35,15 @@ public class MemoryHeap {
         return allocAddr;
     }
 
-    public static Map.Entry<Integer, byte[]> getMem(int addr) {
+    public static Map.Entry<Integer, byte[]> getMem(int adder) {
         int initAddr = 0;
 
         for (Map.Entry<Integer, byte[]> entry : memMap.entrySet()) {
-            if (entry.getKey() <= addr && entry.getKey() > initAddr) {
+            if (entry.getKey() <= adder && entry.getKey() > initAddr) {
                 initAddr = entry.getKey();
                 byte[] mems = entry.getValue();
 
-                if (initAddr + mems.length > addr) {
+                if (initAddr + mems.length > adder) {
                     return entry;
                 }
             }

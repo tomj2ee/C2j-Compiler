@@ -1,6 +1,5 @@
 package lexer;
 
-import debug.ConsoleDebugColor;
 import input.Input;
 
 import java.util.HashMap;
@@ -309,10 +308,10 @@ public class Lexer {
 
     public static void main(String[] args) {
         Lexer lexer = new Lexer();
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 201; i++) {
             lexer.advance();
             int token = lexer.lookAhead;
-            System.out.println(Token.getTokenStr(token));
+            System.out.println(Token.getTokenStr(token)+"->"+token +"  ->"+i );
         }
     }
 

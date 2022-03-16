@@ -1,6 +1,5 @@
 package input;
 
-import java.awt.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -134,8 +133,12 @@ public class Input {
     public static void main(String[] args) {
         Input input = new Input();
         input.newFile();
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < 30000; i++) {
             byte b = input.inputAdvance();
+            if(b<=0){
+                System.out.println("game over");
+                break;
+            }
             System.out.println(b + "  " + (char) b);
         }
     }

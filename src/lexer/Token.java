@@ -1,9 +1,5 @@
 package lexer;
 
-import com.sun.org.apache.bcel.internal.generic.GOTO;
-import com.sun.org.apache.bcel.internal.generic.RETURN;
-import com.sun.org.apache.bcel.internal.generic.SWITCH;
-
 /**
  * C token enumeration
  *

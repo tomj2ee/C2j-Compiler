@@ -21,7 +21,7 @@ public class Start {
     public static final int INTERPRETER = 1;
     public static final int CODEGEN = 2;
 
-    public static boolean DEBUG = false;
+    public static boolean DEBUG = true;
 
     public static String FILEPATH = "testInput.c";
 
