@@ -40,11 +40,11 @@ void main () {
     printf("asd %d", g);
     g = g + 1;
     }
-    printf("Array before quicksort:");
+    printf(">>>===>Array before quicksort:");
     for(i = 0; i < 10; i++) {
         t = (10 - i);
         a[i] = t;
-        printf("value of a[%d] is %d", i, a[i]);
+        printf("value of xxx==> a[%d] is %d", i, a[i]);
     }
 
     quickSort(a, 0, 9);
