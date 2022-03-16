@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> Aviator 表达式求值引擎开源框架</title>
+ <body> Aviator 表达式求值引擎开源框架</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614893.html"> <span role="heading" aria-level="2">Aviator 表达式求值引擎开源框架</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <h1>简介<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#简介" target="_blank" rel="noopener">¶</a></h1> 
+  <p>Aviator是一个高性能、轻量级的java语言实现的表达式求值引擎，主要用于各种表达式的动态求值。现在已经有很多开源可用的java表达式求值引擎，为什么还需要Avaitor呢？</p> 
+  <p>Aviator的设计目标是<strong>轻量级</strong>和<strong>高性能&nbsp;</strong>，相比于Groovy、JRuby的笨重，Aviator非常小，加上依赖包也才450K,不算依赖包的话只有70K；当然，Aviator的语法是受限的，它不是一门完整的语言，而只是语言的一小部分集合。</p> 
+  <p>其次，Aviator的实现思路与其他轻量级的求值器很不相同，其他求值器一般都是通过解释的方式运行，而Aviator则是直接将表达式<strong>编译成Java字节码</strong>，交给JVM去执行。简单来说，Aviator的定位是介于Groovy这样的重量级脚本语言和IKExpression这样的轻量级表达式引擎之间。</p> 
+  <h1><a name="t1" target="_blank" rel="noopener"></a><a name="特性" target="_blank" rel="noopener"></a>特性<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#特性" target="_blank" rel="noopener">¶</a></h1> 
+  <p>Aviator的特性</p> 
+  <ul> 
+   <li>支持大部分运算操作符，包括算术操作符、关系运算符、逻辑操作符、正则匹配操作符(=~)、三元表达式?: ，并且支持操作符的优先级和括号强制优先级，具体请看后面的操作符列表。</li> 
+  </ul> 
+  <p>&nbsp;</p> 
+  <ul> 
+   <li>支持函数调用和自定义函数</li> 
+  </ul> 
+  <p>&nbsp;</p> 
+  <ul> 
+   <li>支持正则表达式匹配，类似Ruby、Perl的匹配语法，并且支持类Ruby的$digit指向匹配分组。</li> 
+  </ul> 
+  <ul> 
+   <li>自动类型转换，当执行操作的时候，会自动判断操作数类型并做相应转换，无法转换即抛异常。</li> 
+  </ul> 
+  <ul> 
+   <li>支持传入变量，支持类似a.b.c的嵌套变量访问。</li> 
+  </ul> 
+  <ul> 
+   <li>性能优秀</li> 
+  </ul> 
+  <p>Aviator的限制：</p> 
+  <ul> 
+   <li>没有if else、do while等语句，没有赋值语句，仅支持逻辑表达式、算术表达式、三元表达式和正则匹配。</li> 
+  </ul> 
+  <ul> 
+   <li>没有位运算符</li> 
+  </ul> 
+  <h1><a name="t2" target="_blank" rel="noopener"></a><a name="整体结构" target="_blank" rel="noopener"></a>整体结构<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#整体结构" target="_blank" rel="noopener">¶</a></h1> 
+  <p>Aviator的结构非常简单，一个典型的求值器的结构</p> 
+  <p><img src="img/1647419864231/-7993260948424241203.jpg" alt=""></p> 
+  <h1><a name="t3" target="_blank" rel="noopener"></a><a name="依赖包" target="_blank" rel="noopener"></a>依赖包<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#依赖包" target="_blank" rel="noopener">¶</a></h1> 
+  <p><a href="http://commons.apache.org/beanutils/" rel="noopener" target="_blank">commons-beanutils</a>和<a href="http://commons.apache.org/logging/" rel="noopener" target="_blank">commons-logging</a></p> 
+  <h1><a name="t4" target="_blank" rel="noopener"></a><a name="使用手册" target="_blank" rel="noopener"></a>使用手册<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#使用手册" target="_blank" rel="noopener">¶</a></h1> 
+  <h2><a name="t5" target="_blank" rel="noopener"></a><a name="执行表达式" target="_blank" rel="noopener"></a>执行表达式<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#执行表达式" target="_blank" rel="noopener">¶</a></h2> 
+  <p>Aviator的使用都是集中通过com.googlecode.aviator.AviatorEvaluator这个入口类来处理，最简单的例子，执行一个计算1+2+3的表达式：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">SimpleExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Long<span class="pln"> result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">Long<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"1+2+3"<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>细心的朋友肯定注意到结果是Long，而不是Integer。这是因为Aviator的数值类型仅支持Long和Double，任何整数都将转换成Long，任何浮点数都将转换为Double，包括用户传入的变量数值。这个例子的打印结果将是正确答案6。</p> 
+  <h2><a name="t6" target="_blank" rel="noopener"></a><a name="使用变量" target="_blank" rel="noopener"></a>使用变量<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#使用变量" target="_blank" rel="noopener">¶</a></h2> 
+  <p>想让Aviator对你say hello吗？很简单，传入你的名字，让Aviator负责字符串的相加：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">SayHello<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">if<span class="pln"> <span class="pun">(<span class="pln">args<span class="pun">.<span class="pln">length <span class="pun">&lt;<span class="pln"> <span class="lit">1<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="pln">err<span class="pun">.<span class="kwd">print<span class="pun">(<span class="str">"Usesage: Java SayHello yourname"<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> yourname <span class="pun">=<span class="pln"> args<span class="pun">[<span class="lit">0<span class="pun">];<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"yourname"<span class="pun">,<span class="pln"> yourname<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">String<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" 'hello ' + yourname "<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>上面的例子演示了怎么向表达式传入变量值，表达式中的yourname是一个变量，默认为null，通过传入Map&lt;String,Object&gt;的变量绑定环境，将yourname设置为你输入的名称。env的key是变量名，value是变量的值。</p> 
+  <p>上面例子中的'hello '是一个Aviator的String，Aviator的String是任何用单引号或者双引号括起来的字符序列，String可以比较大小（基于unicode顺序），可以参与正则匹配，可以与任何对象相加，任何对象与String相加结果为String。String中也可以有转义字符，如/n、//、/'等。</p> 
+  <pre name="code" class="prettyprint"><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" 'a/"b' "<span class="pun">);<span class="pln"> &nbsp; <span class="com">//字符串 a'b<span class="pln">&nbsp;<br><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" /"a/'b/" "<span class="pun">);<span class="pln"> &nbsp;<span class="com">//字符串 a"b<span class="pln">&nbsp;<br><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" 'hello'+3 "<span class="pun">);<span class="pln"> &nbsp;<span class="com">//字符串 hello 3<span class="pln">&nbsp;<br><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" 'hello '+ unknow "<span class="pun">);<span class="pln"> &nbsp;<span class="com">//字符串 hello null</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <h2><a name="t7" target="_blank" rel="noopener"></a><a name="调用函数" target="_blank" rel="noopener"></a>调用函数<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#调用函数" target="_blank" rel="noopener">¶</a></h2> 
+  <p>Aviator支持函数调用，函数调用的风格类似lua，下面的例子获取字符串的长度：</p> 
+  <pre name="code" class="prettyprint"><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"string.length('hello')"<span class="pun">);</span></span></span></span></span></span></pre> 
+  <p>string.length('hello')是一个函数调用，string.length是一个函数,'hello'是调用的参数。</p> 
+  <p>再用string.substring来截取字符串：</p> 
+  <pre name="code" class="prettyprint"><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"string.contains(/"test/",string.substring('hello',1,2))"<span class="pun">);</span></span></span></span></span></span></pre> 
+  <p>通过string.substring('hello',1,2)获取字符串'e'，然后通过函数string.contains判断e是否在'test'中。可以看到，函数可以嵌套调用。</p> 
+  <p>Aviator的内置函数列表请看后面。</p> 
+  <h3><a name="t8" target="_blank" rel="noopener"></a><a name="自定义函数" target="_blank" rel="noopener"></a>自定义函数<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#自定义函数" target="_blank" rel="noopener">¶</a></h3> 
+  <p>Aviator除了内置的函数之外，还允许用户自定义函数，只要实现com.googlecode.aviator.runtime.type.AviatorFunction接口，并注册到AviatorEvaluator即可使用</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">public<span class="pln"> <span class="kwd">interface<span class="pln"> <span class="typ">AviatorFunction<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="com">/**&nbsp;<br>&nbsp; &nbsp; &nbsp;* Get the function name&nbsp;<br>&nbsp; &nbsp; &nbsp;* &nbsp;<br>&nbsp; &nbsp; &nbsp;* @return&nbsp;<br>&nbsp; &nbsp; &nbsp;*/<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="typ">String<span class="pln"> getName<span class="pun">();<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; <span class="com">/**&nbsp;<br>&nbsp; &nbsp; &nbsp;* call function&nbsp;<br>&nbsp; &nbsp; &nbsp;* &nbsp;<br>&nbsp; &nbsp; &nbsp;* @param env&nbsp;<br>&nbsp; &nbsp; &nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;Variable environment&nbsp;<br>&nbsp; &nbsp; &nbsp;* @param args&nbsp;<br>&nbsp; &nbsp; &nbsp;* &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;Function arguments&nbsp;<br>&nbsp; &nbsp; &nbsp;* @return&nbsp;<br>&nbsp; &nbsp; &nbsp;*/<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="typ">AviatorObject<span class="pln"> call<span class="pun">(<span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env<span class="pun">,<span class="pln"> <span class="typ">AviatorObject<span class="pun">...<span class="pln"> args<span class="pun">);<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>可以看一个例子，我们实现一个add函数来做数值的相加：</p> 
+  <pre name="code" class="prettyprint"><span class="pln">&nbsp; <span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="pln">runtime<span class="pun">.<span class="kwd">function<span class="pun">.<span class="typ">FunctionUtils<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; <span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="pln">runtime<span class="pun">.<span class="pln">type<span class="pun">.<span class="typ">AviatorDouble<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; <span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="pln">runtime<span class="pun">.<span class="pln">type<span class="pun">.<span class="typ">AviatorFunction<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; <span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="pln">runtime<span class="pun">.<span class="pln">type<span class="pun">.<span class="typ">AviatorObject<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">AddFunction<span class="pln"> <span class="kwd">implements<span class="pln"> <span class="typ">AviatorFunction<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="typ">AviatorObject<span class="pln"> call<span class="pun">(<span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env<span class="pun">,<span class="pln"> <span class="typ">AviatorObject<span class="pun">...<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">if<span class="pln"> <span class="pun">(<span class="pln">args<span class="pun">.<span class="pln">length <span class="pun">!=<span class="pln"> <span class="lit">2<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">throw<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">IllegalArgumentException<span class="pun">(<span class="str">"Add only supports two arguments"<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Number<span class="pln"> left <span class="pun">=<span class="pln"> <span class="typ">FunctionUtils<span class="pun">.<span class="pln">getNumberValue<span class="pun">(<span class="lit">0<span class="pun">,<span class="pln"> args<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Number<span class="pln"> right <span class="pun">=<span class="pln"> <span class="typ">FunctionUtils<span class="pun">.<span class="pln">getNumberValue<span class="pun">(<span class="lit">1<span class="pun">,<span class="pln"> args<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">return<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">AviatorDouble<span class="pun">(<span class="pln">left<span class="pun">.<span class="pln">doubleValue<span class="pun">()<span class="pln"> <span class="pun">+<span class="pln"> right<span class="pun">.<span class="pln">doubleValue<span class="pun">());<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="typ">String<span class="pln"> getName<span class="pun">()<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">return<span class="pln"> <span class="str">"add"<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; <span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>注册到AviatorEvaluator并调用如下：</p> 
+  <pre name="code" class="prettyprint"><span class="pln">&nbsp; &nbsp; &nbsp; &nbsp; <span class="com">//注册函数<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">addFunction<span class="pun">(<span class="kwd">new<span class="pln"> <span class="typ">AddFunction<span class="pun">());<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"add(1,2)"<span class="pun">));<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"add(add(1,2),100)"<span class="pun">));</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>注册函数通过AviatorEvaluator.addFunction方法，移除可以通过removeFunction。</p> 
+  <h2><a name="t9" target="_blank" rel="noopener"></a><a name="编译表达式" target="_blank" rel="noopener"></a>编译表达式<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#编译表达式" target="_blank" rel="noopener">¶</a></h2> 
+  <p>上面提到的例子都是直接执行表达式，事实上Aviator背后都帮你做了编译并执行的工作。你可以自己先编译表达式，返回一个编译的结果，然后传入不同的env来复用编译结果，提高性能，这是更推荐的使用方式：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">HashMap<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Map<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">Expression<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">CompileExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> expression <span class="pun">=<span class="pln"> <span class="str">"a-(b-c)&gt;100"<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="com">// 编译表达式<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Expression<span class="pln"> compiledExp <span class="pun">=<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">compile<span class="pun">(<span class="pln">expression<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"a"<span class="pun">,<span class="pln"> <span class="lit">100.3<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"b"<span class="pun">,<span class="pln"> <span class="lit">45<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"c"<span class="pun">,<span class="pln"> <span class="pun">-<span class="lit">199.100<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="com">// 执行表达式<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Boolean<span class="pln"> result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">Boolean<span class="pun">)<span class="pln"> compiledExp<span class="pun">.<span class="pln">execute<span class="pun">(<span class="pln">env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>通过compile方法可以将表达式编译成Expression的中间对象，当要执行表达式的时候传入env并调用Expression的execute方法即可。表达式中使用了括号来强制优先级，这个例子还使用了&gt;用于比较数值大小，比较运算符!=、==、&gt;、&gt;=、&lt;、&lt;=不仅可以用于数值，也可以用于String、Pattern、Boolean等等，甚至是任何用户传入的两个都实现了java.lang。Comparable接口的对象之间。</p> 
+  <p>编译后的结果你可以自己缓存，也可以交给Aviator帮你缓存，AviatorEvaluator内部有一个全局的缓存池，如果你决定缓存编译结果，可以通过：</p> 
+  <pre name="code" class="prettyprint"><span class="pln">&nbsp; &nbsp;<span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="typ">Expression<span class="pln"> compile<span class="pun">(<span class="typ">String<span class="pln"> expression<span class="pun">,<span class="pln"> <span class="kwd">boolean<span class="pln"> cached<span class="pun">)</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>将cached设置为true即可，那么下次编译同一个表达式的时候将直接返回上一次编译的结果。使缓存失效通过：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> invalidateCache<span class="pun">(<span class="typ">String<span class="pln"> expression<span class="pun">)</span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>方法。</p> 
+  <h2><a name="t10" target="_blank" rel="noopener"></a><a name="访问数组和集合" target="_blank" rel="noopener"></a>访问数组和集合<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#访问数组和集合" target="_blank" rel="noopener">¶</a></h2> 
+  <p>可以通过中括号去访问数组和java.util.List对象，可以通过map.key访问java.util.Map中key对应的value，一个例子：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">ArrayList<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Date<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">HashMap<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">List<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Map<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">CollectionExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">final<span class="pln"> <span class="typ">List<span class="pun">&lt;<span class="typ">String<span class="pun">&gt;<span class="pln"> list <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">ArrayList<span class="pun">&lt;<span class="typ">String<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; list<span class="pun">.<span class="pln">add<span class="pun">(<span class="str">"hello"<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; list<span class="pun">.<span class="pln">add<span class="pun">(<span class="str">" world"<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">final<span class="pln"> <span class="kwd">int<span class="pun">[]<span class="pln"> array <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="kwd">int<span class="pun">[<span class="lit">3<span class="pun">];<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; array<span class="pun">[<span class="lit">0<span class="pun">]<span class="pln"> <span class="pun">=<span class="pln"> <span class="lit">0<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; array<span class="pun">[<span class="lit">1<span class="pun">]<span class="pln"> <span class="pun">=<span class="pln"> <span class="lit">1<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; array<span class="pun">[<span class="lit">2<span class="pun">]<span class="pln"> <span class="pun">=<span class="pln"> <span class="lit">3<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">final<span class="pln"> <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Date<span class="pun">&gt;<span class="pln"> map <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Date<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; map<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"date"<span class="pun">,<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">Date<span class="pun">());<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"list"<span class="pun">,<span class="pln"> list<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"array"<span class="pun">,<span class="pln"> array<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"mmap"<span class="pun">,<span class="pln"> map<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="str">"list[0]+list[1]+'/narray[0]+array[1]+array[2]='+(array[0]+array[1]+array[2]) +' /ntoday is '+mmap.date "<span class="pun">,<span class="pln"> env<span class="pun">));<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <h2><a name="t11" target="_blank" rel="noopener"></a><a name="三元操作符" target="_blank" rel="noopener"></a>三元操作符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#三元操作符" target="_blank" rel="noopener">¶</a></h2> 
+  <p>Aviator不提供if else语句，但是提供了三元操作符?:用于条件判断，使用上与java没有什么不同：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">HashMap<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Map<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">TernaryOperatorExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">if<span class="pln"> <span class="pun">(<span class="pln">args<span class="pun">.<span class="pln">length <span class="pun">&lt;<span class="pln"> <span class="lit">1<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="pln">err<span class="pun">.<span class="pln">println<span class="pun">(<span class="str">"Usage: java TernaryOperatorExample [number]"<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">exit<span class="pun">(<span class="lit">1<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">int<span class="pln"> num <span class="pun">=<span class="pln"> <span class="typ">Integer<span class="pun">.<span class="pln">parseInt<span class="pun">(<span class="pln">args<span class="pun">[<span class="lit">0<span class="pun">]);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"a"<span class="pun">,<span class="pln"> num<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">String<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"a&gt;0? 'yes':'no'"<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>这个例子用来判断用户传入的数字是否是正整数，是的话打印yes。</p> 
+  <p>Aviator的三元表达式对于两个分支的结果类型并不要求一致，可以是任何类型，这一点与java不同。</p> 
+  <h2><a name="t12" target="_blank" rel="noopener"></a><a name="正则表达式匹配" target="_blank" rel="noopener"></a>正则表达式匹配<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#正则表达式匹配" target="_blank" rel="noopener">¶</a></h2> 
+  <p>Aviator支持类Ruby和Perl风格的表达式匹配运算，通过=~操作符，如下面这个例子匹配email并提取用户名返回：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">HashMap<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Map<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">RegularExpressionExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> email <span class="pun">=<span class="pln"> <span class="str">"killme2008@gmail.com"<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"email"<span class="pun">,<span class="pln"> email<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> username <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">String<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"email=~/([//w0-8]+@//w+[//.//w+]+)/ ? $1:'unknow'"<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">username<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>email与正则表达式//(//w0-8+@//w+//.//w++)/通过=~操作符来匹配，结果为一个Boolean类型，因此可以用于三元表达式判断，匹配成功的时候返回$1，指代正则表达式的分组1，也就是用户名，否则返回unknown。这个例子将打印killme2008这个用户名。</p> 
+  <p>Aviator在表达式级别支持正则表达式，通过//括起来的字符序列构成一个正则表达式，正则表达式可以用于匹配（作为=~的右操作数)、比较大小，匹配仅能与字符串进行匹配。匹配成功后，Aviator会自动将匹配成功的分组放入$num的变量中，其中$0指代整个匹配的字符串，而$1表示第一个分组，以此类推。</p> 
+  <p>Aviator的正则表达式规则跟Java完全一样，因为内部其实就是使用java.util.regex.Pattern做编译的。</p> 
+  <h2><a name="t13" target="_blank" rel="noopener"></a><a name="变量的语法糖衣" target="_blank" rel="noopener"></a>变量的语法糖衣<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#变量的语法糖衣" target="_blank" rel="noopener">¶</a></h2> 
+  <p>Aviator有个方便用户使用变量的语法糖衣，当你要访问变量a中的某个属性b，那么你可以通过a.b访问到，更进一步，a.b.c将访问变量a的b属性中的c属性值，推广开来也就是说Aviator可以将变量声明为嵌套访问的形式，一个例子，Foo类有属性i、f、date：</p> 
+  <pre name="code" class="prettyprint"><span class="pln">&nbsp;<span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">Foo<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">int<span class="pln"> i<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">float<span class="pln"> f<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Date<span class="pln"> date <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">Date<span class="pun">();<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="typ">Foo<span class="pun">(<span class="kwd">int<span class="pln"> i<span class="pun">,<span class="pln"> <span class="kwd">float<span class="pln"> f<span class="pun">,<span class="pln"> <span class="typ">Date<span class="pln"> date<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">super<span class="pun">();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">this<span class="pun">.<span class="pln">i <span class="pun">=<span class="pln"> i<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">this<span class="pun">.<span class="pln">f <span class="pun">=<span class="pln"> f<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">this<span class="pun">.<span class="pln">date <span class="pun">=<span class="pln"> date<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">int<span class="pln"> getI<span class="pun">()<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">return<span class="pln"> i<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">void<span class="pln"> setI<span class="pun">(<span class="kwd">int<span class="pln"> i<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">this<span class="pun">.<span class="pln">i <span class="pun">=<span class="pln"> i<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">float<span class="pln"> getF<span class="pun">()<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">return<span class="pln"> f<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">void<span class="pln"> setF<span class="pun">(<span class="kwd">float<span class="pln"> f<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">this<span class="pun">.<span class="pln">f <span class="pun">=<span class="pln"> f<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="typ">Date<span class="pln"> getDate<span class="pun">()<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">return<span class="pln"> date<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">void<span class="pln"> setDate<span class="pun">(<span class="typ">Date<span class="pln"> date<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">this<span class="pun">.<span class="pln">date <span class="pun">=<span class="pln"> date<span class="pun">;<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>Foo类符合JavaBean规范，并且是public的，我们执行一个表达式来描述Foo:</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Date<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">HashMap<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Map<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">VariableExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Foo<span class="pln"> foo <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">Foo<span class="pun">(<span class="lit">100<span class="pun">,<span class="pln"> <span class="lit">3.14f<span class="pun">,<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">Date<span class="pun">());<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"foo"<span class="pun">,<span class="pln"> foo<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> result <span class="pun">=<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="pun">(<span class="typ">String<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; <span class="str">" '[foo i='+ foo.i + ' f='+foo.f+' year='+(foo.date.year+1900)+ ' month='+foo.date.month +']' "<span class="pun">,<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>细看下表达式：</p> 
+  <pre name="code" class="prettyprint"><span class="str">'[foo i='<span class="pun">+<span class="pln"> foo<span class="pun">.<span class="pln">i <span class="pun">+<span class="pln"> <span class="str">' f='<span class="pun">+<span class="pln">foo<span class="pun">.<span class="pln">f<span class="pun">+<span class="str">' year='<span class="pun">+(<span class="pln">foo<span class="pun">.<span class="pln">date<span class="pun">.<span class="pln">year<span class="pun">+<span class="lit">1900<span class="pun">)+<span class="pln"> <span class="str">' month='<span class="pun">+<span class="pln">foo<span class="pun">.<span class="pln">date<span class="pun">.<span class="pln">month <span class="pun">+<span class="str">']'</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>可以看到我们通过foo.i和foo.f的方式来访问foo变量中的i和f属性，并且通过foo.date.year的方式来访问foo中date对象的year属性（其实是getYear方法）。</p> 
+  <h2><a name="t14" target="_blank" rel="noopener"></a><a name="nil对象" target="_blank" rel="noopener"></a>nil对象<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#nil对象" target="_blank" rel="noopener">¶</a></h2> 
+  <p>nil是Aviator内置的常量，类似java中的null，表示空的值。nil跟null不同的在于，在java中null只能使用在==、!=的比较运算符，而nil还可以使用&gt;、&gt;=、&lt;、&lt;=等比较运算符。Aviator规定，任何对象都比nil大除了nil本身。用户传入的变量如果为null，将自动以nil替代。</p> 
+  <pre name="code" class="prettyprint"><span class="pln">&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"nil == nil"<span class="pun">);<span class="pln"> &nbsp;<span class="com">//true<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" 3&gt; nil"<span class="pun">);<span class="pln"> &nbsp; &nbsp;<span class="com">//true<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" true!= nil"<span class="pun">);<span class="pln"> &nbsp; &nbsp;<span class="com">//true<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" ' '&gt;nil "<span class="pun">);<span class="pln"> &nbsp;<span class="com">//true<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">" a==nil "<span class="pun">);<span class="pln"> &nbsp; <span class="com">//true,a is null</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>nil与String相加的时候，跟java一样显示为null</p> 
+  <h2><a name="t15" target="_blank" rel="noopener"></a><a name="日期比较" target="_blank" rel="noopener"></a>日期比较<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#日期比较" target="_blank" rel="noopener">¶</a></h2> 
+  <p>Aviator并不支持日期类型，如果要比较日期，你需要将日期写字符串的形式，并且要求是形如"yyyy-MM-dd HH:mm:ss:SS"的字符串，否则都将报错。 字符串跟java.util.Date比较的时候将自动转换为Date对象进行比较：</p> 
+  <pre name="code" class="prettyprint"><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">text<span class="pun">.<span class="typ">SimpleDateFormat<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Date<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">HashMap<span class="pun">;<span class="pln">&nbsp;<br><span class="kwd">import<span class="pln"> java<span class="pun">.<span class="pln">util<span class="pun">.<span class="typ">Map<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br><span class="kwd">import<span class="pln"> com<span class="pun">.<span class="pln">googlecode<span class="pun">.<span class="pln">aviator<span class="pun">.<span class="typ">AviatorEvaluator<span class="pun">;<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp;<br><span class="kwd">public<span class="pln"> <span class="kwd">class<span class="pln"> <span class="typ">DateExample<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="kwd">public<span class="pln"> <span class="kwd">static<span class="pln"> <span class="kwd">void<span class="pln"> main<span class="pun">(<span class="typ">String<span class="pun">[]<span class="pln"> args<span class="pun">)<span class="pln"> <span class="kwd">throws<span class="pln"> <span class="typ">Exception<span class="pln"> <span class="pun">{<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Map<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;<span class="pln"> env <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">HashMap<span class="pun">&lt;<span class="typ">String<span class="pun">,<span class="pln"> <span class="typ">Object<span class="pun">&gt;();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="kwd">final<span class="pln"> <span class="typ">Date<span class="pln"> date <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">Date<span class="pun">();<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">String<span class="pln"> dateStr <span class="pun">=<span class="pln"> <span class="kwd">new<span class="pln"> <span class="typ">SimpleDateFormat<span class="pun">(<span class="str">"yyyy-MM-dd HH:mm:ss:SS"<span class="pun">).<span class="pln">format<span class="pun">(<span class="pln">date<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"date"<span class="pun">,<span class="pln"> date<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; env<span class="pun">.<span class="pln">put<span class="pun">(<span class="str">"dateStr"<span class="pun">,<span class="pln"> dateStr<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">Boolean<span class="pln"> result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">Boolean<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"date==dateStr"<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">Boolean<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"date &gt; '2009-12-20 00:00:00:00' "<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">Boolean<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"date &lt; '2200-12-20 00:00:00:00' "<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; result <span class="pun">=<span class="pln"> <span class="pun">(<span class="typ">Boolean<span class="pun">)<span class="pln"> <span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">execute<span class="pun">(<span class="str">"date ==date "<span class="pun">,<span class="pln"> env<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; &nbsp; &nbsp; <span class="typ">System<span class="pun">.<span class="kwd">out<span class="pun">.<span class="pln">println<span class="pun">(<span class="pln">result<span class="pun">);<span class="pln">&nbsp;<br>&nbsp; &nbsp; <span class="pun">}<span class="pln">&nbsp;<br>&nbsp;<br><span class="pun">}</span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></span></pre> 
+  <p>也就是说String除了能跟String比较之外，还能跟nil和date字符串比较。</p> 
+  <h2><a name="t16" target="_blank" rel="noopener"></a><a name="两种模式" target="_blank" rel="noopener"></a>两种模式<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#两种模式" target="_blank" rel="noopener">¶</a></h2> 
+  <p>默认AviatorEvaluator以编译速度优先：</p> 
+  <pre name="code" class="prettyprint"><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">setOptimize<span class="pun">(<span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">COMPILE<span class="pun">);</span></span></span></span></span></span></span></span></pre> 
+  <p>你可以修改为运行速度优先，这会做更多的编译优化：</p> 
+  <pre name="code" class="prettyprint"><span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">setOptimize<span class="pun">(<span class="typ">AviatorEvaluator<span class="pun">.<span class="pln">EVAL<span class="pun">);</span></span></span></span></span></span></span></span></pre> 
+  <h2><a name="t17" target="_blank" rel="noopener"></a><a name="语法手册" target="_blank" rel="noopener"></a>语法手册<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#语法手册" target="_blank" rel="noopener">¶</a></h2> 
+  <p>下面是Aviator详细的语法规则定义。</p> 
+  <h3><a name="t18" target="_blank" rel="noopener"></a><a name="数据类型" target="_blank" rel="noopener"></a>数据类型<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#数据类型" target="_blank" rel="noopener">¶</a></h3> 
+  <ul> 
+   <li>Number类型：数字类型，支持两种类型，分别对应Java的Long和Double，也就是说任何整数都将被转换为Long，而任何浮点数都将被转换为Double，包括用户传入的数值也是如此转换。不支持科学计数法，仅支持十进制。如-1、100、2.3等。</li> 
+  </ul> 
+  <ul> 
+   <li>String类型： 字符串类型，单引号或者双引号括起来的文本串，如'hello world'，变量如果传入的是String或者Character也将转为String类型。</li> 
+  </ul> 
+  <ul> 
+   <li>Bool类型： 常量true和false，表示真值和假值，与java的Boolean.TRUE和Boolean.False对应。</li> 
+  </ul> 
+  <ul> 
+   <li>Pattern类型： 类似Ruby、perl的正则表达式，以//括起来的字符串，如//d+/，内部实现为java.util.Pattern。</li> 
+  </ul> 
+  <ul> 
+   <li>变量类型： 与Java的变量命名规则相同，变量的值由用户传入，如"a"、"<em>b"等</em></li> 
+  </ul> 
+  <ul> 
+   <li>nil类型: 常量nil,类似java中的null，但是nil比较特殊，nil不仅可以参与==、!=的比较，也可以参与&gt;、&gt;=、&lt;、&lt;=的比较，Aviator规定任何类型都n大于nil除了nil本身，nil==nil返回true。用户传入的变量值如果为null，那么也将作为nil处理，nil打印为null。</li> 
+  </ul> 
+  <h3><a name="t19" target="_blank" rel="noopener"></a><a name="操作符" target="_blank" rel="noopener"></a>操作符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#操作符" target="_blank" rel="noopener">¶</a></h3> 
+  <h4><a name="t20" target="_blank" rel="noopener"></a><a name="算术运算符" target="_blank" rel="noopener"></a>算术运算符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#算术运算符" target="_blank" rel="noopener">¶</a></h4> 
+  <p>Aviator支持常见的算术运算符，包括+ -&nbsp;<tt>*</tt>&nbsp;/ % 五个二元运算符，和一元运算符"-"。其中 -&nbsp;<tt>*</tt>&nbsp;/ %和一元的"-"仅能作用于Number类型。</p> 
+  <p>"+"不仅能用于Number类型，还可以用于String的相加，或者字符串与其他对象的相加。Aviator规定，任何类型与String相加，结果为String。</p> 
+  <h4><a name="t21" target="_blank" rel="noopener"></a><a name="逻辑运算符" target="_blank" rel="noopener"></a>逻辑运算符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#逻辑运算符" target="_blank" rel="noopener">¶</a></h4> 
+  <p>Avaitor的支持的逻辑运算符包括，一元否定运算符"!"，以及逻辑与的"&amp;&amp;"，逻辑或的"||"。逻辑运算符的操作数只能为Boolean。</p> 
+  <h4><a name="t22" target="_blank" rel="noopener"></a><a name="关系运算符" target="_blank" rel="noopener"></a>关系运算符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#关系运算符" target="_blank" rel="noopener">¶</a></h4> 
+  <p>Aviator支持的关系运算符包括"&lt;" "&lt;=" "&gt;" "&gt;=" 以及"=="和"!=" 。</p> 
+  <p>&amp;&amp;和||都执行短路规则。</p> 
+  <p>关系运算符可以作用于Number之间、String之间、Pattern之间、Boolean之间、变量之间以及其他类型与nil之间的关系比较，不同类型除了nil之外不能相互比较。</p> 
+  <p>Aviator规定任何对象都比nil大除了nil之外。</p> 
+  <h4><a name="t23" target="_blank" rel="noopener"></a><a name="匹配运算符" target="_blank" rel="noopener"></a>匹配运算符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#匹配运算符" target="_blank" rel="noopener">¶</a></h4> 
+  <p>匹配运算符"=~"用于String和Pattern的匹配，它的左操作数必须为String，右操作数必须为Pattern。匹配成功后，Pattern的分组将存于变量$num，num为分组索引。</p> 
+  <h4><a name="t24" target="_blank" rel="noopener"></a><a name="三元运算符" target="_blank" rel="noopener"></a>三元运算符<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#三元运算符" target="_blank" rel="noopener">¶</a></h4> 
+  <p>Aviator没有提供if else语句，但是提供了三元运算符 "?:"，形式为 bool ? exp1: exp2。 其中bool必须为结果为Boolean类型的表达式，而exp1和exp2可以为任何合法的Aviator表达式，并且不要求exp1和exp2返回的结果类型一致。</p> 
+  <h3><a name="t25" target="_blank" rel="noopener"></a><a name="操作符列表" target="_blank" rel="noopener"></a>操作符列表<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#操作符列表" target="_blank" rel="noopener">¶</a></h3> 
+  <p>Aviator支持操作符的优先级，并且允许通过括号来强制优先级，下面是完整的操作符列表，按照优先级从高到低的顺序排列：</p> 
+  <p>&nbsp;</p> 
+  <table border="0"> 
+   <tbody> 
+    <tr> 
+     <td>序号</td> 
+     <td>操作符</td> 
+     <td>结合性</td> 
+     <td>操作数限制</td> 
+    </tr> 
+    <tr> 
+     <td>0</td> 
+     <td>()&nbsp;<tt>[</tt>&nbsp;<tt>]</tt></td> 
+     <td>从左到右</td> 
+     <td>()用于函数调用，<tt>[</tt>&nbsp;<tt>]</tt>用于数组和java.util.List的元素访问，要求<tt>[</tt>indx<tt>]</tt>中的index必须为整型</td> 
+    </tr> 
+    <tr> 
+     <td>1</td> 
+     <td>! -</td> 
+     <td>从右到左</td> 
+     <td>! 能用于Boolean,- 仅能用于Number</td> 
+    </tr> 
+    <tr> 
+     <td>2</td> 
+     <td><tt>*</tt>&nbsp;/ %</td> 
+     <td>从左到右</td> 
+     <td>Number之间</td> 
+    </tr> 
+    <tr> 
+     <td>3</td> 
+     <td>+ -</td> 
+     <td>从左到右</td> 
+     <td>+ - 都能用于Number之间, + 还能用于String之间，或者String和其他对象</td> 
+    </tr> 
+    <tr> 
+     <td>4</td> 
+     <td>&lt; &lt;= &gt; &gt;=</td> 
+     <td>从左到右</td> 
+     <td>Number之间、String之间、Pattern之间、变量之间、其他类型与nil之间</td> 
+    </tr> 
+    <tr> 
+     <td>5</td> 
+     <td>== != =~</td> 
+     <td>从左到右</td> 
+     <td>==和!=作用于Number之间、String之间、Pattern之间、变量之间、其他类型与nil之间以及String和java.util.Date之间，=~仅能作用于String和Pattern之间</td> 
+    </tr> 
+    <tr> 
+     <td>6</td> 
+     <td>&amp;&amp;</td> 
+     <td>从左到右</td> 
+     <td>Boolean之间，短路</td> 
+    </tr> 
+    <tr> 
+     <td>7</td> 
+     <td><tt>|</tt><tt>|</tt></td> 
+     <td>从左到右</td> 
+     <td>Boolean之间，短路</td> 
+    </tr> 
+    <tr> 
+     <td>8</td> 
+     <td>? :</td> 
+     <td>从右到左</td> 
+     <td>第一个操作数的结果必须为Boolean，第二和第三操作数结果无限制</td> 
+    </tr> 
+   </tbody> 
+  </table> 
+  <p>&nbsp;</p> 
+  <h3><a name="t26" target="_blank" rel="noopener"></a><a name="类型转换规则" target="_blank" rel="noopener"></a>类型转换规则<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#类型转换规则" target="_blank" rel="noopener">¶</a></h3> 
+  <ul> 
+   <li>Java的byte short int long都转化为Long类型，Java的float,double都将转化为Double类型。Java的char String都将转化为String。Java的null都将转为nil。</li> 
+  </ul> 
+  <ul> 
+   <li>当两个操作符都是Double或者都是Long的时候，各自按照Double或者Long的类型执行</li> 
+  </ul> 
+  <ul> 
+   <li>当两个操作符中某一个是Double的时候，另一个操作数也将转换成Double，按照Double类型执行。</li> 
+  </ul> 
+  <ul> 
+   <li>任何类型与String相加，结果为String</li> 
+  </ul> 
+  <ul> 
+   <li>任何类型都比nil大，除了nil本身。</li> 
+  </ul> 
+  <ul> 
+   <li>nil在打印或者与字符串相加的时候，显示为null</li> 
+  </ul> 
+  <ul> 
+   <li>形如"yyyy-MM-dd HH:mm:ss:SS"的字符串，在与java.util.Date做比较的时候将尝试转换成java.util.Date对象比较。</li> 
+  </ul> 
+  <p>&nbsp;</p> 
+  <ul> 
+   <li>没有规定的类型转换操作，除了未知的变量类型之间，都将抛出异常。</li> 
+  </ul> 
+  <p>&nbsp;</p> 
+  <h3><a name="t27" target="_blank" rel="noopener"></a><a name="常量和变量" target="_blank" rel="noopener"></a>常量和变量<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#常量和变量" target="_blank" rel="noopener">¶</a></h3> 
+  <p>&nbsp;</p> 
+  <table border="0"> 
+   <tbody> 
+    <tr> 
+     <td>true</td> 
+     <td>真值</td> 
+    </tr> 
+    <tr> 
+     <td>false</td> 
+     <td>假值</td> 
+    </tr> 
+    <tr> 
+     <td>nil</td> 
+     <td>空值</td> 
+    </tr> 
+    <tr> 
+     <td>$digit</td> 
+     <td>正则表达式匹配成功后的分组，$0表示匹配的字符串，$1表示第一个分组 etc.</td> 
+    </tr> 
+   </tbody> 
+  </table> 
+  <p>&nbsp;</p> 
+  <h3><a name="t28" target="_blank" rel="noopener"></a><a name="内置函数" target="_blank" rel="noopener"></a>内置函数<a class="section_anchor" href="http://code.google.com/p/aviator/wiki/User_Guide_zh#内置函数" target="_blank" rel="noopener">¶</a></h3> 
+  <p>&nbsp;</p> 
+  <p></p> 
+  <table border="0"> 
+   <tbody> 
+    <tr> 
+     <td>函数名称</td> 
+     <td>说明</td> 
+    </tr> 
+    <tr> 
+     <td>sysdate()</td> 
+     <td>返回当前日期对象java.util.Date</td> 
+    </tr> 
+    <tr> 
+     <td>rand()</td> 
+     <td>返回一个介于0-1的随机数，double类型</td> 
+    </tr> 
+    <tr> 
+     <td>print(<tt>[</tt>out<tt>]</tt>,obj)</td> 
+     <td>打印对象，如果指定out，向out打印，否则输出到控制台</td> 
+    </tr> 
+    <tr> 
+     <td>println(<tt>[</tt>out<tt>]</tt>,obj)</td> 
+     <td>与print类似，但是在输出后换行</td> 
+    </tr> 
+    <tr> 
+     <td>now()</td> 
+     <td>返回System.currentTimeMillis</td> 
+    </tr> 
+    <tr> 
+     <td>string.contains(s1,s2)</td> 
+     <td>判断s1是否包含s2，返回Boolean</td> 
+    </tr> 
+    <tr> 
+     <td>string.length(s)</td> 
+     <td>求字符串长度,返回Long</td> 
+    </tr> 
+    <tr> 
+     <td>string.startsWith(s1,s2)</td> 
+     <td>s1是否以s2开始，返回Boolean</td> 
+    </tr> 
+    <tr> 
+     <td>string.endsWith(s1,s2)</td> 
+     <td>s1是否以s2结尾,返回Boolean</td> 
+    </tr> 
+    <tr> 
+     <td>string.substring(s,begin<tt>[</tt>,end<tt>]</tt>)</td> 
+     <td>截取字符串s，从begin到end，end如果忽略的话，将从begin到结尾，与java.util.String.substring一样。</td> 
+    </tr> 
+    <tr> 
+     <td>math.abs(d)</td> 
+     <td>求d的绝对值</td> 
+    </tr> 
+    <tr> 
+     <td>math.sqrt(d)</td> 
+     <td>求d的平方根</td> 
+    </tr> 
+    <tr> 
+     <td>math.pow(d1,d2)</td> 
+     <td>求d1的d2次方</td> 
+    </tr> 
+    <tr> 
+     <td>math.log(d)</td> 
+     <td>求d的自然对数</td> 
+    </tr> 
+    <tr> 
+     <td>math.log10(d)</td> 
+     <td>求d以10为底的对数</td> 
+    </tr> 
+    <tr> 
+     <td>math.sin(d)</td> 
+     <td>正弦函数</td> 
+    </tr> 
+    <tr> 
+     <td>math.cos(d)</td> 
+     <td>余弦函数</td> 
+    </tr> 
+    <tr> 
+     <td>math.tan(d)</td> 
+     <td>正切函数</td> 
+    </tr> 
+    <tr> 
+     <td>map(seq,fun)</td> 
+     <td>将函数fun作用到集合seq每个元素上，返回新元素组成的集合</td> 
+    </tr> 
+    <tr> 
+     <td>filter(seq,predicate)</td> 
+     <td>将谓词predicate作用在集合的每个元素上，返回谓词为true的元素组成的集合</td> 
+    </tr> 
+    <tr> 
+     <td>count(seq)</td> 
+     <td>返回集合大小</td> 
+    </tr> 
+    <tr> 
+     <td>include(seq,element)</td> 
+     <td>判断element是否在集合seq中，返回boolean值</td> 
+    </tr> 
+    <tr> 
+     <td>sort(seq)</td> 
+     <td>排序集合，仅对数组和List有效，返回排序后的新集合</td> 
+    </tr> 
+    <tr> 
+     <td>reduce(seq,fun,init)</td> 
+     <td>fun接收两个参数，第一个是集合元素，第二个是累积的init，本函数用于将fun作用在集合每个元素和初始值上面，返回最终的init值</td> 
+    </tr> 
+    <tr> 
+     <td>seq.eq(value)</td> 
+     <td>返回一个谓词，用来判断传入的参数是否跟value相等,用于filter函数，如filter(seq,seq.eq(3)) 过滤返回等于3的元素组成的集合</td> 
+    </tr> 
+    <tr> 
+     <td>seq.neq(value)</td> 
+     <td>与seq.eq类似，返回判断不等于的谓词</td> 
+    </tr> 
+    <tr> 
+     <td>seq.gt(value)</td> 
+     <td>返回判断大于value的谓词</td> 
+    </tr> 
+    <tr> 
+     <td>seq.ge(value)</td> 
+     <td>返回判断大于等于value的谓词</td> 
+    </tr> 
+    <tr> 
+     <td>seq.lt(value)</td> 
+     <td>返回判断小于value的谓词</td> 
+    </tr> 
+    <tr> 
+     <td>seq.le(value)</td> 
+     <td>返回判断小于等于value的谓词</td> 
+    </tr> 
+    <tr> 
+     <td>seq.nil()</td> 
+     <td>返回判断是否为nil的谓词</td> 
+    </tr> 
+    <tr> 
+     <td>seq.exists()</td> 
+     <td>返回判断不为nil的谓词<br><br></td> 
+    </tr> 
+   </tbody> 
+  </table> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 14:33</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">41589</span>)&nbsp; 评论(<span id="post_comment_count">0</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614893" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614893);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614893', targetLink: 'https://www.cnblogs.com/csguo/p/7614893.html', title: 'Aviator 表达式求值引擎开源框架' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614893, cb_entryCreatedDate = '2017-09-30 14:33', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419864556/4317621903181424644.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>

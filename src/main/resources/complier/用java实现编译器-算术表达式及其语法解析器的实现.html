@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 用java实现编译器-算术表达式及其语法解析器的实现</title>
+ <body> 用java实现编译器-算术表达式及其语法解析器的实现</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614809.html"> <span role="heading" aria-level="2">用java实现编译器-算术表达式及其语法解析器的实现</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <p>大家在参考本节时，请先阅读以下博文，进行预热：</p> 
+  <p><a href="http://blog.csdn.net/tyler_download/article/details/50708807" target="_blank" rel="noopener">http://blog.csdn.net/tyler_download/article/details/50708807</a></p> 
+  <p>&nbsp;</p> 
+  <p>本节代码下载地址：</p> 
+  <p><a href="http://pan.baidu.com/s/1sjWiwPn" target="_blank" rel="noopener">http://pan.baidu.com/s/1sjWiwPn</a></p> 
+  <p>代码的理解和运行是吃透编译原理的关键，如果我们看的是爱情动作片，自然选择无码的好，但如果看得是计算机课程，则必须有码，无码的计算机理论都是耍流氓。</p> 
+  <p>&nbsp;</p> 
+  <p>当前，java所实现的简易编译器目的是将一条或一组含有加号和乘号的算术表达式编译成类似汇编语言的伪码，因此必须给算术表达式设立一组语法规则，那么程序才能对输入的表达式进行分析。我们把一组带有分号的算术表达式称为statements, 例如:</p> 
+  <p align="left">1+2*3+4;</p> 
+  <p align="left">2+3*4+5;</p> 
+  <p>3+4*5+6;</p> 
+  <p>这三个表达式的集合称为statements.同时将一组表达式中的某一条带有分号的表达式称为expression, 这样statements 就是由一个或多个expression组成的:</p> 
+  <p><img src="img/1647419885453/2989403036420273975.jpg" alt=""></p> 
+  <p>&nbsp;</p> 
+  <p>因此statements的语法规则可以写成：</p> 
+  <p>statements -&gt; expression; | expression; statements</p> 
+  <p>&nbsp;</p> 
+  <p>大家看到该语法定义跟我在上一篇文章中举的例子有所不同：</p> 
+  <p>1.&nbsp;&nbsp;&nbsp;&nbsp;在-&gt; 右边有两组解析规则，他们用符号 | 分割开。</p> 
+  <p>2.&nbsp;&nbsp;&nbsp;&nbsp;-&gt; 左边的被解析的对象居然在右边的解析规则中出现，形成了一种循环，也就是用自己来解释自己，这种情况在编译原理中称为左循环LR (Left recursive).</p> 
+  <p>&nbsp;</p> 
+  <p>这里，大家可能会发现语法定义的一些问题：</p> 
+  <p>1.&nbsp;&nbsp;&nbsp;&nbsp;右边有两组解析规则，用右边替换左边时，到底选取哪一组？</p> 
+  <p>2.&nbsp;&nbsp;&nbsp;&nbsp;左边的符号(statements) 出现在右边的规则中，替换的话就会出现死循环：</p> 
+  <p>statements(buffer) {</p> 
+  <p>expression(buffer);</p> 
+  <p>&nbsp;</p> 
+  <p>statements(buffer); //此处将导致循环调用</p> 
+  <p>}</p> 
+  <p>这些问题，在后面我们再加以解决，暂且先继续给出余下的语法规则：</p> 
+  <p>&nbsp;</p> 
+  <p>Expression -&gt;expression + term | term;</p> 
+  <p>term -&gt; term* factor | factor</p> 
+  <p>factor -&gt;NUMBER | (expression)</p> 
+  <p>&nbsp;</p> 
+  <p>&nbsp;</p> 
+  <p>看到这，大家会不会有点恼火，为什么这组语法规则能够用来解析一组算术表达式? 你是根据什么办法给出这组规则的？我以前在读编译原理的相关书籍时也会有这些郁闷和困惑，都不知道作者是怎么想到的，书中解释有含糊不清，直到现在我才明白，在学习的早期，有些地方你必须先囫囵吞枣，带着疑惑看到后面，你自然就会明白，所以大家在此先无需理解我是怎么给出这组语法定义的，先记着，然后把代码跑一边，看看结果，有个感性认识，在后续文章中，我会慢慢解释，如何根据要编译的文本，给出相应的语法规则。</p> 
+  <p>&nbsp;</p> 
+  <p>&nbsp;</p> 
+  <p>现在我们来解决前面提到的两个问题, -&gt;右边有两组替换规则，在语法解析的时候，如何决定选取哪一组？在编译原理的实现技巧中，有一种方法叫look ahead, 举个例子,对规则：</p> 
+  <p>statements -&gt;expression; | expression; statements</p> 
+  <p>替换时用“| “ 左边的 expression; 还是右边的expression; statements呢,办法是当我们在程序中，读到第一个分号”;” 时，再继续读入下一个符号，如果继续读入符号时，返回的是输入的结束标志(EOI) 那么我们就使用“|” 左边的规则来替换，如果继续读入的符号不是结束标志，那意味着分号后边还有需要解析的信息，那就使用“|” 右边的替换规则，这种技巧在语法解析中就叫look ahead.</p> 
+  <p>&nbsp;</p> 
+  <p>&nbsp;</p> 
+  <p>如何解决语法规则中出现循环调用呢？我们需要对语法规则做一些更改，更改原理在以后的文章中再做进一步的解释，请大家再囫囵吞枣一次，我知道吃东西不消化会对胃不好，黄天在上，这里是最后一次这样，请大家原谅，修改后的语法规则如下：</p> 
+  <p align="left">1. statements -&gt; ‘空‘ | expression; statements</p> 
+  <p align="left">2. expression-&gt; term expression'</p> 
+  <p align="left">3. expression'-&gt; +term expression' | ‘空‘</p> 
+  <p align="left">4. term -&gt; factor &nbsp;term'</p> 
+  <p align="left">5. term' -&gt; * factor &nbsp;term' | ‘空‘</p> 
+  <p align="left">6. factor -&gt; number | (expression)</p> 
+  <p>这组修改后的语法规则比修改前更加难以理解，但能确保，这组规则不会出现修改前那样导致解析死循环。语法规则中的’空’ 表示结束，什么都不做。例如如果我们输入一个空字符串””给语法解析器，那么规则1中就以”空”来解析输入的空字符串，其结果就是程序什么都不做，直接返回，在程序中”空”&nbsp;相当于return语句。</p> 
+  <p>&nbsp;</p> 
+  <p>&nbsp;</p> 
+  <p>我们用表达式：1 + 2 ; 看看语法规则形成的解析树是怎样的：</p> 
+  <p>&nbsp;</p> 
+  <p><img src="img/1647419885734/-1418201231649914834.jpg" alt=""></p> 
+  <p>&nbsp;</p> 
+  <p>在下面给出的视频中，我将对代码实现进行详细的讲解，同时通过运行代码，让大家体会到执行的效果，以帮助大家对语法解析的原理和实现有深一步的认识，大家把代码下下来，对着视频中的步骤运行一次，便可得知一个语法解析器的“五脏六腑"是如何组合运行的。由于视频中会出现代码解析，如果画面分辨率过低，可能无法看清代码，请大家在观看视频时将分辨率设置成高清或1080P。</p> 
+  <p>&nbsp;</p> 
+  <p>由于csdn无法插入视频，我将视频地址给出如下：</p> 
+  <p>http://v.youku.com/v_show/id_XMTQ4MTI2NzgyMA==.html?firsttime=0&amp;from=y1.4-2</p> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 14:13</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">2446</span>)&nbsp; 评论(<span id="post_comment_count">0</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614809" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614809);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614809', targetLink: 'https://www.cnblogs.com/csguo/p/7614809.html', title: '用java实现编译器-算术表达式及其语法解析器的实现' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614809, cb_entryCreatedDate = '2017-09-30 14:13', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419886025/8781082870838909451.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>

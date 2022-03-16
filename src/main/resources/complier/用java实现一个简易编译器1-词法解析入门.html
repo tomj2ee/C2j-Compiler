@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 用java实现一个简易编译器1-词法解析入门</title>
+ <body> 用java实现一个简易编译器1-词法解析入门</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614698.html"> <span role="heading" aria-level="2">用java实现一个简易编译器1-词法解析入门</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <p>本文对应代码下载地址为：</p> 
+  <p>http://download.csdn.net/detail/tyler_download/9435103</p> 
+  <p>视频地址：</p> 
+  <p>http://v.youku.com/v_show/id_XMTQ3NTQwMDkxMg==.html?from=s1.8-1-1.2</p> 
+  <p>&nbsp;</p> 
+  <p class="p1"><span class="s1">技术的发展可谓是日新月异，层出不穷，但无论是炙手可热的大数据，还是火烧鸟了的人工智能，所有这些高大上的尖端科技无不建立在基础技术的根基之上。编译原理，计算机网络，操作系统，便是所有软件技术的基石。在这三根支柱中，维编译原理最为难懂，特别是大学课本那种晦涩难通，不讲人话的言语，更是让人觉得这门基础技术就像九十多岁的老妪，皮肤干巴，老态龙钟，让人提不起一点欲望。除了国内教材，就算是被广为称赞的一千多页的”龙书“，也是满篇理论，让人望而生畏。</span></p> 
+  <p class="p2"><span class="s1">味道怎样，咬一口就知道，手感如何，摸一把就晓得。编译原理缺的不是理论概念，而是能够动手实践的流程，代码，很多原理用话语怎么讲都难以明了，但跑一遍代码，基本就水落石出。本文本着动手实操(念第一声)的原则，用java实现一个简单的编译器，让读者朋友能一感编译原理的实质，我秉持一个原则，没有代码可实践的计算机理论，都是耍流氓。</span></p> 
+  <p>&nbsp;</p> 
+  <p>编译器作用就是将一种计算机无法理解的文本，转译成计算机能执行的语句，我们要做的编译器如下，将带有加法和乘法的算术式子，转译成机器能执行的汇编语句，例如语句：</p> 
+  <p>1+2*3+4, 经过编译后转换成：</p> 
+  <p class="p1">t0 = 1</p> 
+  <p class="p1">t1 = 2</p> 
+  <p class="p1">t2 = 3</p> 
+  <p class="p1">t1 *= t2</p> 
+  <p class="p1">t0 += t1</p> 
+  <p class="p1">t1 = 4</p> 
+  <p class="p1">t0 += t1</p> 
+  <p class="p1">t0, t1 是对寄存器的模拟，上述语句基本上就类似计算机能执行的汇编语句了。</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">本章首先专注于词法解析的探讨。</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">编译原理由两部分组成，一是词法分析，一是语义分析。先说词法分析，词法分析就是将一个语句分割成若干个有意义的字符串的组合，然后给分割的字符串打标签。例如语句：</p> 
+  <p class="p1">1+2*3+4; 可以分割成 1+, 2*, 3+, 4; 但这些子字符串没有实质意义，有意义的分割是1, +, 2, * , 3, +, 4, ;. 接着就是给这些分割后的字符串打标签，例如给1, 2, 3, 4 打上的标签是NUM_OR_ID, &nbsp;+ 打的标签是PLUS, ＊的标签是TIMES, ;的标签是SEMI, 好了，看看词法分析的代码，大家可能更容易理解：</p> 
+  <p class="p1">Lexer.java:</p> 
+  <p class="p1">&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/tyler_download/article/details/50668983#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/tyler_download/article/details/50668983#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> 
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">import&nbsp;java.util.Scanner;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;Lexer&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;EOI&nbsp;=&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;SEMI&nbsp;=&nbsp;<span class="number">1;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;PLUS&nbsp;=&nbsp;<span class="number">2;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;TIMES&nbsp;=&nbsp;<span class="number">3;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;LP&nbsp;=&nbsp;<span class="number">4;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;RP&nbsp;=&nbsp;<span class="number">5;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">int&nbsp;&nbsp;NUM_OR_ID&nbsp;=&nbsp;<span class="number">6;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">int&nbsp;lookAhead&nbsp;=&nbsp;-<span class="number">1;&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;String&nbsp;yytext&nbsp;=&nbsp;<span class="string">"";&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">int&nbsp;yyleng&nbsp;=&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">int&nbsp;yylineno&nbsp;=&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;String&nbsp;input_buffer&nbsp;=&nbsp;<span class="string">"";&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;String&nbsp;current&nbsp;=&nbsp;<span class="string">"";&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">boolean&nbsp;isAlnum(<span class="keyword">char&nbsp;c)&nbsp;{&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(Character.isAlphabetic(c)&nbsp;==&nbsp;<span class="keyword">true&nbsp;||&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Character.isDigit(c)&nbsp;==&nbsp;<span class="keyword">true)&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">true;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">int&nbsp;lex()&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(<span class="keyword">true)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(current&nbsp;==&nbsp;<span class="string">"")&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Scanner&nbsp;s&nbsp;=&nbsp;<span class="keyword">new&nbsp;Scanner(System.in);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(<span class="keyword">true)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;line&nbsp;=&nbsp;s.nextLine();&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(line.equals(<span class="string">"end"))&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;input_buffer&nbsp;+=&nbsp;line;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;s.close();&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(input_buffer.length()&nbsp;==&nbsp;<span class="number">0)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current&nbsp;=&nbsp;<span class="string">"";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;EOI;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current&nbsp;=&nbsp;input_buffer;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;++yylineno;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current.trim();&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<span class="comment">//while&nbsp;(current&nbsp;!=&nbsp;"")&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">for&nbsp;(<span class="keyword">int&nbsp;i&nbsp;=&nbsp;<span class="number">0;&nbsp;i&nbsp;&lt;&nbsp;current.length();&nbsp;i++)&nbsp;{&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yyleng&nbsp;=&nbsp;<span class="number">0;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yytext&nbsp;=&nbsp;current.substring(<span class="number">0,&nbsp;<span class="number">1);&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(current.charAt(i))&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">';':&nbsp;current&nbsp;=&nbsp;current.substring(<span class="number">1);&nbsp;<span class="keyword">return&nbsp;SEMI;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'+':&nbsp;current&nbsp;=&nbsp;current.substring(<span class="number">1);&nbsp;<span class="keyword">return&nbsp;PLUS;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'*':&nbsp;current&nbsp;=&nbsp;current.substring(<span class="number">1);<span class="keyword">return&nbsp;TIMES;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'(':&nbsp;current&nbsp;=&nbsp;current.substring(<span class="number">1);<span class="keyword">return&nbsp;LP;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">')':&nbsp;current&nbsp;=&nbsp;current.substring(<span class="number">1);<span class="keyword">return&nbsp;RP;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'\n':&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'\t':&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'&nbsp;':&nbsp;current&nbsp;=&nbsp;current.substring(<span class="number">1);&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">default:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(isAlnum(current.charAt(i))&nbsp;==&nbsp;<span class="keyword">false)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(<span class="string">"Ignoring&nbsp;illegal&nbsp;input:&nbsp;"&nbsp;+&nbsp;current.charAt(i));&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(isAlnum(current.charAt(i)))&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;i++;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yyleng++;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span class="comment">//&nbsp;while&nbsp;(isAlnum(current.charAt(i)))&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;yytext&nbsp;=&nbsp;current.substring(<span class="number">0,&nbsp;yyleng);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;current&nbsp;=&nbsp;current.substring(yyleng);&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;NUM_OR_ID;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span class="comment">//switch&nbsp;(current.charAt(i))&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<span class="comment">//&nbsp;&nbsp;for&nbsp;(int&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;current.length();&nbsp;i++)&nbsp;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<span class="comment">//while&nbsp;(true)&nbsp;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}<span class="comment">//lex()&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">boolean&nbsp;match(<span class="keyword">int&nbsp;token)&nbsp;{&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(lookAhead&nbsp;==&nbsp;-<span class="number">1)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lookAhead&nbsp;=&nbsp;lex();&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;token&nbsp;==&nbsp;lookAhead;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;advance()&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lookAhead&nbsp;=&nbsp;lex();&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;runLexer()&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(!match(EOI))&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(<span class="string">"Token:&nbsp;"&nbsp;+&nbsp;token()&nbsp;+&nbsp;<span class="string">"&nbsp;,Symbol:&nbsp;"&nbsp;+&nbsp;yytext&nbsp;);&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;advance();&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;String&nbsp;token()&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;token&nbsp;=&nbsp;<span class="string">"";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(lookAhead)&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;EOI:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"EOI";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;PLUS:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"PLUS";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;TIMES:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"TIMES";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;NUM_OR_ID:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"NUM_OR_ID";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;SEMI:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"SEMI";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LP:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"LP";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;RP:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;token&nbsp;=&nbsp;<span class="string">"RP";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;token;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p> <br><br></p> 
+  <p>&nbsp;</p> 
+  <p class="p1">代码中2到6行是对标签的定义，其中LP 代表左括号(, &nbsp;RP代表右括号)， EOI 表示语句末尾, 第10行的lookAhead 变量用于表明当前分割的字符串指向的标签值，yytext用于存储当前正在分析的字符串，yyleng是当前分析的字符串的长度，yylineno是当前分析的字符串所在的行号。input_buffer 用于存储要分析的语句例如: 1+2*3+4; &nbsp;isAlNum 用于判断输入的字符是否是数字或字母。lex() 函数开始了词法分析的流程，31到40行从控制台读入语句，语句以"end"表明结束，例如在控制台输入：</p> 
+  <p class="p1">1+2*3+4;</p> 
+  <p class="p1">end</p> 
+  <p> 回车后，从52行开始执行词法解析流程。以上面的输入为例，input_buffer 存储语句 1+2*3+4, 由于第一个字符是 1, 在for 循环中，落入switch 的default 部分，isAlNum 返回为真，yyleng 自加后值为1， yytext 存储的字符串就是 "1", current前进一个字符变为+2*3+4, 再次执行lex(), 则解析的字符是+, 在for 循环中，落入switch的case '+' 分支，于是yytext为"+", 返回的标签就是PLUS依次类推， advance 调用一次， lex()就执行一次词法分析，当lex执行若干次后，语句1+2*3+4;会被分解成1, +, 2, *, 3, +, 4, ; 。字符串1, 2, 3, 4具有的标签是NUM_OR_ID, + 具有的标签是PLUS, ＊的标签是TIMES, ;的标签是SEMI.</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">runLexer() 将驱动词法解析器，执行解析流程，如果解析到的当前字符串，其标签不是EOI(end of input), 也就是没有达到输入末尾，那么就打印出当前分割的字符串和它所属的标签，接着调用advance() 进行下一次解析。</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">match, advance 会被稍后我们将看到的语法解析器调用。</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">接下来我们在main函数中，跑起Lexer, 看看词法解析过程：</p> 
+  <p class="p1">Compiler.java</p> 
+  <p class="p1">&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/tyler_download/article/details/50668983#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/tyler_download/article/details/50668983#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> 
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;Compiler&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">void&nbsp;main(String[]&nbsp;args)&nbsp;{&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Lexer&nbsp;lexer&nbsp;=&nbsp;<span class="keyword">new&nbsp;Lexer();&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//Parser&nbsp;parser&nbsp;=&nbsp;new&nbsp;Parser(lexer);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//parser.statements();&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lexer.runLexer();&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p> <br>在eclipse 中运行给定代码，然后在控制台中输入如下：</p> 
+  <p>&nbsp;</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">1+2*3+4;</p> 
+  <p class="p1">end</p> 
+  <p> 程序运行后输出：</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">Token: NUM_OR_ID ,Symbol: 1</p> 
+  <p class="p1">Token: PLUS ,Symbol: +</p> 
+  <p class="p1">Token: NUM_OR_ID ,Symbol: 2</p> 
+  <p class="p1">Token: TIMES ,Symbol: *</p> 
+  <p class="p1">Token: NUM_OR_ID ,Symbol: 3</p> 
+  <p class="p1">Token: PLUS ,Symbol: +</p> 
+  <p class="p1">Token: NUM_OR_ID ,Symbol: 4</p> 
+  <p class="p1">Token: SEMI ,Symbol: ;</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">后记：</p> 
+  <p> 该篇叙述的只是一个简单的词法解析入门，希望通过可运行的代码，让大家能体会一下词法分析的流程，从感性上获得直接的认识，为后续理解完整专业的词法解析打下基础。</p> 
+  <p class="p1">完整的代码我会上传到csdn, 大家可以获得代码后，自己运行尝试一下。我将在后续的文章中，继续与大家一起探讨一个完整编译器的开发。</p> 
+  <p class="p1">&nbsp;</p> 
+  <p class="p1">另外，我希望将此教程制作成视频模式，大家通过观看视频，可以更直观的看到代码调试，解析，运行等流程，更容易学习和加深理解，如果哪位朋友有兴趣，留个邮箱，我把</p> 
+  <p class="p1">制作好的视频发给你们，并虚心的向诸位朋友求教。</p> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 13:39</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">2969</span>)&nbsp; 评论(<span id="post_comment_count">0</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614698" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614698);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614698', targetLink: 'https://www.cnblogs.com/csguo/p/7614698.html', title: '用java实现一个简易编译器1-词法解析入门' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614698, cb_entryCreatedDate = '2017-09-30 13:39', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419886874/6327597340637728726.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>

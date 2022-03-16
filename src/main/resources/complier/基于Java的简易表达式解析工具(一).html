@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 基于Java的简易表达式解析工具(一)</title>
+ <body> 基于Java的简易表达式解析工具(一)</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614875.html"> <span role="heading" aria-level="2">基于Java的简易表达式解析工具(一)</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <p>最近需要用到相关表达式解析的工具，然后去网上搜索，找到了一个用C#写的表达式解析工具，仔细看了功能后发现，这正是我需要的，如果我能将它改造成基于Java语言的方式，岂不是更好吗，所以花了一段时间，把网上的C#的代码转换成了Java的代码，如今已经用它处理完美的处理一些表达式解析的工作。</p> 
+  <p>先来看下这个基于Java的表达式解析工具都可以做些什么吧!</p> 
+  <p>1、可以完成加、减、乘、除、取余、次幂的运算解析。</p> 
+  <p>2、可以完成按位与、按位或、逻辑与、逻辑或、逻辑非的运算解析。</p> 
+  <p>3、可以完成相等、不相等、大于、小于、大于等于、小于等于、左移位，右移位的运算解析。</p> 
+  <p>4、可以完成包含、不包含、已什么开始、已什么结束运算解析。</p> 
+  <p>我相信，这些基础的功能，完全可以满足大部分的需求了，而这个工具仅仅只有5个类完成（ExpressionEvaluator,ExpressionException,ExpressionNode,ExpressionNodeType,ExpressionParser）。</p> 
+  <p>如果想要开发新的表达式解析规则，也是很容易的，完全可以把我们在Java里使用的一些函数和功能，通过定义一种表达式输入规则，配置到代码中，完成表达式解析的工作。关于表达式解析的算法，主要采用了<strong>逆波兰表达式</strong>。</p> 
+  <p>先来看看用法吧：</p> 
+  <p>例子1：</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;Test2&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">void&nbsp;main(String[]&nbsp;args){&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//加法运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;plusStr&nbsp;=&nbsp;<span class="string">"1&nbsp;+&nbsp;2";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(plusStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//减法运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;subtractStr&nbsp;=&nbsp;<span class="string">"20&nbsp;-&nbsp;6";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(subtractStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//乘法运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;multiPlyStr&nbsp;=&nbsp;<span class="string">"3&nbsp;*&nbsp;5";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(multiPlyStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//除法运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;divideStr&nbsp;=&nbsp;<span class="string">"20&nbsp;/&nbsp;4";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(divideStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//次幂运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;powerStr&nbsp;=&nbsp;<span class="string">"2&nbsp;^&nbsp;3";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(powerStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//取余运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;modStr&nbsp;=&nbsp;<span class="string">"4&nbsp;%&nbsp;3";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(modStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//混合运算&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;resultStr&nbsp;=&nbsp;<span class="string">"(1&nbsp;+&nbsp;2)&nbsp;-&nbsp;4&nbsp;*&nbsp;3&nbsp;+&nbsp;2^2&nbsp;+&nbsp;4%3";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(resultStr));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p>&nbsp;</p> 
+  <p>输出结果如下：</p> 
+  <p>3.0<br>14.0<br>15.0<br>5.0<br>8.0<br>1.0<br>-4.0</p> 
+  <p>&nbsp;</p> 
+  <p>例子2：</p> 
+  <p>&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51613467#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;Test2&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">void&nbsp;main(String[]&nbsp;args){&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;s1&nbsp;=&nbsp;<span class="string">"(1&nbsp;+&nbsp;2)&nbsp;==&nbsp;3";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(s1));&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;s2&nbsp;=&nbsp;<span class="string">"(20&nbsp;-&nbsp;6)&nbsp;&lt;&nbsp;3";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(s2));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;s3&nbsp;=&nbsp;<span class="string">"(3&nbsp;+&nbsp;1)&nbsp;==&nbsp;4&nbsp;&amp;&amp;&nbsp;5&nbsp;&gt;&nbsp;(2&nbsp;+&nbsp;3)";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(s3));&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;s4&nbsp;=&nbsp;<span class="string">"\"hello\"&nbsp;==&nbsp;\"hello\"&nbsp;&amp;&amp;&nbsp;3&nbsp;!=&nbsp;4";&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(s4));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;s5&nbsp;=&nbsp;<span class="string">"\"helloworld\"&nbsp;@&nbsp;\"hello\"&nbsp;&amp;&amp;&nbsp;&nbsp;\"helloworld\"&nbsp;!@&nbsp;\"word\"&nbsp;";&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(ExpressionEvaluator.eval(s5));&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p> <br>输出结果如下：</p> 
+  <p>&nbsp;</p> 
+  <p>true<br>false<br>false<br>true<br>true</p> 
+  <p>而在实际使用的过程中，通常需要在界面上配置，配置的时候可能是如下的样子：</p> 
+  <p>【字段一】包含 “helloword” 并且 【字段二】 不等于 “hello"</p> 
+  <p>当这个表达式在使用的时候，通常需要有一步转换的工作，在调用表达式解析的时候，首先需要把在前台定义好一种解析的格式规则，然后前台用户根据规则输入的合法的表达式，到后台时首先转换成表达式解析能识别的格式，然后在交给表达式解析工作解析。</p> 
+  <p>这个基于Java的表达式解析工具很简单，也非常容易根据自己的需求进行扩展，关于相关的代码，会在以后的博文中会共享出来。</p> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 14:28</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">2132</span>)&nbsp; 评论(<span id="post_comment_count">0</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614875" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614875);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614875', targetLink: 'https://www.cnblogs.com/csguo/p/7614875.html', title: '基于Java的简易表达式解析工具(一)' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614875, cb_entryCreatedDate = '2017-09-30 14:28', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419866129/-567003988681674681.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>

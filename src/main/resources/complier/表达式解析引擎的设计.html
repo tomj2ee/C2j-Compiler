@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 表达式解析引擎的设计</title>
+ <body> 表达式解析引擎的设计</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614884.html"> <span role="heading" aria-level="2">表达式解析引擎的设计</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <h1>前言</h1> 
+  <p>表达式的计算是一个一般性的问题。在报表领域，经常会出现支持计算公式的需求。MS Office Excel中的函数计算就是一个很好的参考例子。</p> 
+  <p>本文提供一个表达式引擎的设计方案，能够满足报表领域的复杂计算要求。</p> 
+  <p>&nbsp;</p> 
+  <p>一个良好的表达式引擎应该支持基本的二元运算和函数调用，而且二元运算能够嵌套函数调用，函数调用也能够嵌套二元运算，比如：</p> 
+  <p>例子1：=2&gt;1&amp;&amp;((Num(1)+2*Num((Num(2)+2)*3/Num(2)))/2&gt;0||2&gt;1)&amp;&amp;0&gt;1，执行结果：0</p> 
+  <p>例子2：=Switch(Num(1),是, Num(0),否)，执行结果：是</p> 
+  <p>例子3：=Switch(20&lt;10,1 ,20&gt;=10, 20 + 20*0.1)，执行结果：22</p> 
+  <p>&nbsp;</p> 
+  <p>当然，实际的应用里，表达式中要支持变量的绑定，比如：</p> 
+  <p>例子1(计算税后金额)：=Fields!数量.Value * Fields!单价.Value*(1 + Fields!税率.Value / 100)</p> 
+  <p>例子2(不同价格不同税后金额)：=Fields!数量.Value*Fields!单价.Value*Switch(Fields!单价.Value&lt;100, 1.1, Fields!单价.Value&lt;500, 1.08, Fields!单价.Value&lt;800, 1.07)</p> 
+  <p>&nbsp;</p> 
+  <p>至于常用的一元运算，能够通过函数调用就很方便的实现，例如：取非，Not(exp1)。</p> 
+  <p>&nbsp;</p> 
+  <h1><a name="t1" target="_blank" rel="noopener"></a>表达式的定义</h1> 
+  <p>要支持二元运算能够嵌套函数调用，函数调用也能够嵌套二元运算，需要采用解析器设计模式，定义数个表达式对象，用表达式对象树来描述表达式字符串。</p> 
+  <p><img src="img/1647419864795/-5310159633229664272.jpg" alt=""></p> 
+  <p><strong>值表达式：</strong>用来描述一个常量或变量，例如：1.1，Fields!数量.Value，Parameters!经手人.Value，字符串</p> 
+  <p><strong>二元表达式：</strong>用来描述一个二元运算，例如：exp1 + exp2，exp1</p> 
+  <p><strong>函数表达式：</strong>用来描述一个函数调用，例如：Num(exp1)，Sum(exp1)， Switch(cond1, proc1, cond2, proc2…)</p> 
+  <p>&nbsp;</p> 
+  <h1><a name="t2" target="_blank" rel="noopener"></a>运算符优先级</h1> 
+  <p>运算符优先级很重要，决定了运算的顺序，特别是括号，能够改变表达式的运算顺序。</p> 
+  <div> 
+   <table border="0">
+    <colgroup span="1">
+     <col span="1">
+     <col span="1">
+     <col span="1">
+    </colgroup> 
+    <tbody> 
+     <tr> 
+      <td> <p><strong>优先级</strong></p> </td> 
+      <td> <p><strong>运算符</strong></p> </td> 
+      <td> <p><strong>说明</strong></p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-1</p> </td> 
+      <td> <p>(</p> </td> 
+      <td> <p>左括号</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-1</p> </td> 
+      <td> <p>)</p> </td> 
+      <td> <p>右括号</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-2</p> </td> 
+      <td> <p>^</p> </td> 
+      <td> <p>幂运算</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-3</p> </td> 
+      <td> <p>*</p> </td> 
+      <td> <p>乘</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-3</p> </td> 
+      <td> <p>/</p> </td> 
+      <td> <p>除</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-3</p> </td> 
+      <td> <p>%</p> </td> 
+      <td> <p>取余</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-4</p> </td> 
+      <td> <p>+</p> </td> 
+      <td> <p>加</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-4</p> </td> 
+      <td> <p>-</p> </td> 
+      <td> <p>减</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-5</p> </td> 
+      <td> <p>&lt;</p> </td> 
+      <td> <p>小于</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-5</p> </td> 
+      <td> <p>&lt;=</p> </td> 
+      <td> <p>小于等于</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-5</p> </td> 
+      <td> <p>&gt;</p> </td> 
+      <td> <p>大于</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-5</p> </td> 
+      <td> <p>&gt;=</p> </td> 
+      <td> <p>大于等于</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-6</p> </td> 
+      <td> <p>==</p> </td> 
+      <td> <p>等于</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-6</p> </td> 
+      <td> <p>!=</p> </td> 
+      <td> <p>不等于</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-7</p> </td> 
+      <td> <p>&amp;&amp;</p> </td> 
+      <td> <p>逻辑与</p> </td> 
+     </tr> 
+     <tr> 
+      <td> <p>-8</p> </td> 
+      <td> <p>||</p> </td> 
+      <td> <p>逻辑或</p> </td> 
+     </tr> 
+    </tbody> 
+   </table> 
+  </div> 
+  <p>&nbsp;</p> 
+  <h1><a name="t3" target="_blank" rel="noopener"></a>表达式引擎的工作流程</h1> 
+  <p><img src="img/1647419865399/6105166929489731742.jpg" alt=""></p> 
+  <p>&nbsp;</p> 
+  <h1><a name="t4" target="_blank" rel="noopener"></a>二元运算解析生成后缀表达式数组的过程</h1> 
+  <p>中缀表达式解析成后缀表达式的方法如下，要借用一个临时堆栈stack，输出是后缀表达式数组output：</p> 
+  <p>（1）从右向左依次读取表达式字符串str。</p> 
+  <p>（2）如果str是操作数(常量或变量)，输出到output。</p> 
+  <p>（3）如果str是运算符（含左右括号），则做以下判断：</p> 
+  <p>&nbsp;&nbsp;&nbsp; a） 如果str = '('，放入堆栈stack。</p> 
+  <p>&nbsp;&nbsp;&nbsp; b）如果str = ')'，依次弹出堆栈stack中的运算符输出到output，直到遇到'('为止。</p> 
+  <p>&nbsp;&nbsp;&nbsp; c）如果str不是')'或者'('，那么就和堆栈stack顶点位置的运算符top做优先级比较。</p> 
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1）如果top是'('或者str优先级比top高，那么将str放入堆栈stack。</p> 
+  <p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2）如果str优先级低于或者等于top，那么输出top到output，然后将str放入堆栈stack。</p> 
+  <p>（4）如果表达式字符串已经读取完成，而堆栈stack中还有运算符时，依次由顶端输出到output。</p> 
+  <p>&nbsp;</p> 
+  <h1><a name="t5" target="_blank" rel="noopener"></a>后缀表达式数组生成表达式对象树的过程</h1> 
+  <p>计算后缀表达式的方法如下，要借用一个临时堆栈stack：</p> 
+  <p>（1）从左向右扫描后缀表达式数组，依次取出一个数组元素data。</p> 
+  <p>（2）如果data是表达式，就压入堆栈stack。</p> 
+  <p>（3）如果data是运算符，就从堆栈stack中弹出此运算符需要用到的表达式的个数(二元运算符需要2个)，创建一个新二元表达式，然后把二元表达式压入堆栈stack。</p> 
+  <p>（4）如果数组处理完毕，堆栈stack中最后剩余的表达式就是最终结果。</p> 
+  <p>&nbsp;</p> 
+  <p>例如，表达式=(Num(1)+2*Num(Num(2)+2*3/Num(2)))/2，生成的后缀表达式数组如下：</p> 
+  <p>0:&nbsp;&nbsp;&nbsp;&nbsp;Method{num, [Const(1)]}</p> 
+  <p>1:&nbsp;&nbsp;&nbsp;&nbsp;Const(2)</p> 
+  <p>2:&nbsp;&nbsp;&nbsp;&nbsp;Method{num, [Binary{+, Method{num, [Const(2)]}, Binary{/, Binary{*, Const(2), Const(3)}, Method{num, [Const(2)]}}}]}</p> 
+  <p>3:&nbsp;&nbsp;&nbsp;&nbsp;*</p> 
+  <p>4:&nbsp;&nbsp;&nbsp;&nbsp;+</p> 
+  <p>5:&nbsp;&nbsp;&nbsp;&nbsp;Const(2)</p> 
+  <p>6:&nbsp;&nbsp;&nbsp;&nbsp;/</p> 
+  <p>该后缀表达式数组生成的表达式对象树如下：</p> 
+  <p>Binary{/, Binary{+, Method{num, [Const(1)]}, Binary{*, Const(2), Method{num, [Binary{+, Method{num, [Const(2)]}, Binary{/, Binary{*, Const(2), Const(3)}, Method{num, [Const(2)]}}}]}}}, Const(2)}</p> 
+  <p>&nbsp;</p> 
+  <p>剩下的工作就是执行表达式对象树，输出结果。</p> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 14:31</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">4739</span>)&nbsp; 评论(<span id="post_comment_count">0</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614884" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614884);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614884', targetLink: 'https://www.cnblogs.com/csguo/p/7614884.html', title: '表达式解析引擎的设计' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614884, cb_entryCreatedDate = '2017-09-30 14:31', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419865938/1789893256597822680.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>

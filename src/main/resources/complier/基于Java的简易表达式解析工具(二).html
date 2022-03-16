@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 基于Java的简易表达式解析工具(二)</title>
+ <body> 基于Java的简易表达式解析工具(二)</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614869.html"> <span role="heading" aria-level="2">基于Java的简易表达式解析工具(二)</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <p>之前简单的介绍了这个基于Java表达式解析工具，现在把代码分享给大家，希望帮助到有需要的人们，这个分享代码中依赖了一些其他的类，这些类大家可以根据自己的情况进行导入，无非就是写字符串处理工具类，日期处理的工具类什么的。</p> 
+  <p>这个Java的表达式解析的工具只用了5个类，而且写得也很简单明了，相信有一些编程经验的可以看懂这些处理的逻辑代码。</p> 
+  <p>1、第一个类：ExpressionNodeType(表达式各个字符节点的类型枚举类)</p> 
+  <p>&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">enum&nbsp;ExpressionNodeType&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Unknown,&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;Plus,<span class="comment">//&nbsp;+&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Subtract,&nbsp;<span class="comment">///&nbsp;-&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;MultiPly,<span class="comment">//&nbsp;*&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Divide,<span class="comment">//&nbsp;/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;LParentheses,<span class="comment">//(&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;RParentheses,&nbsp;<span class="comment">///&nbsp;)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;Mod,<span class="comment">//%&nbsp;(求模,取余)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Power,<span class="comment">//&nbsp;^&nbsp;(次幂)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;BitwiseAnd,&nbsp;<span class="comment">///&nbsp;&amp;&nbsp;(按位与)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;BitwiseOr,<span class="comment">///&nbsp;|&nbsp;(按位或)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;And,<span class="comment">//&nbsp;&amp;&amp;&nbsp;(逻辑与)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Or,&nbsp;<span class="comment">///&nbsp;||&nbsp;(逻辑或)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;Not,<span class="comment">///&nbsp;!&nbsp;(逻辑非)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Equal,<span class="comment">///&nbsp;==&nbsp;(相等)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;Unequal,<span class="comment">///&nbsp;!=&nbsp;或&nbsp;&lt;&gt;&nbsp;(不等于)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;GT,&nbsp;<span class="comment">///&nbsp;&gt;&nbsp;(大于)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;LT,&nbsp;<span class="comment">///&nbsp;&lt;&nbsp;(小于)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;GTOrEqual,<span class="comment">///&nbsp;&gt;=&nbsp;(大于等于)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;LTOrEqual,&nbsp;<span class="comment">///&nbsp;&lt;=&nbsp;(小于等于)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;LShift,&nbsp;&nbsp;<span class="comment">///&nbsp;&lt;&lt;&nbsp;(左移位)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;RShift,<span class="comment">///&nbsp;&gt;&gt;&nbsp;(右移位)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Numeric,&nbsp;<span class="comment">///&nbsp;数值,&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;String,&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;Date,&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;Like,<span class="comment">//包含&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;NotLike,<span class="comment">//不包含&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;StartWith,<span class="comment">//已什么开始&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;EndWith<span class="comment">//已什么结尾&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p>&nbsp;</p> 
+  <p>这个类中定义了一些枚举的类型，如加减乘数啊，等于不等于啊，包含不包含啊，如果要进行扩展的话，第一步需要在这里定义一种枚举类型。</p> 
+  <p>2、第二个类：ExpressionNode(存储表达式运算符或操作数的各个节点的类)</p> 
+  <p>&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;ExpressionNode&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;String&nbsp;value;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;ExpressionNodeType&nbsp;type;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">int&nbsp;pri;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;ExpressionNode&nbsp;unitaryNode;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;Object&nbsp;numeric;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;value&nbsp;操作数或运算符&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionNode(String&nbsp;value)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.value&nbsp;=&nbsp;value;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.type&nbsp;=&nbsp;parseNodeType(value);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.pri&nbsp;=&nbsp;getNodeTypePRI(<span class="keyword">this.type);&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.numeric&nbsp;=&nbsp;<span class="keyword">null;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;Object&nbsp;getNumeric(){&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if(<span class="keyword">this.numeric&nbsp;==&nbsp;<span class="keyword">null){&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;((<span class="keyword">this.type&nbsp;==&nbsp;ExpressionNodeType.String)&nbsp;||&nbsp;(<span class="keyword">this.type&nbsp;==&nbsp;ExpressionNodeType.Date))&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">this.value;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(<span class="keyword">this.type&nbsp;!=&nbsp;ExpressionNodeType.Numeric){&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Double&nbsp;num&nbsp;=&nbsp;<span class="keyword">new&nbsp;Double(<span class="keyword">this.value);&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(<span class="keyword">this.unitaryNode&nbsp;!=&nbsp;<span class="keyword">null&nbsp;&amp;&amp;&nbsp;<span class="keyword">this.unitaryNode.type&nbsp;==&nbsp;ExpressionNodeType.Subtract)&nbsp;&nbsp;</span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;num&nbsp;=&nbsp;<span class="number">0&nbsp;-&nbsp;num;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.numeric&nbsp;=&nbsp;&nbsp;num;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;numeric;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setNumeric(Object&nbsp;numeric)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.numeric&nbsp;=&nbsp;numeric;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.value&nbsp;=&nbsp;<span class="keyword">this.numeric.toString();&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;设置或返回与当前节点相关联的一元操作符节点&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;unitaryNode&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setUnitaryNode(ExpressionNode&nbsp;unitaryNode)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.unitaryNode&nbsp;=&nbsp;unitaryNode;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;&nbsp;解析节点类型&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;value&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;ExpressionNodeType&nbsp;parseNodeType(String&nbsp;value)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(StringUtils.isEmpty(value)){&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Unknown;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(value)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"+":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Plus;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"-":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Subtract;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"*":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.MultiPly;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"/":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Divide;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"%":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Mod;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"^":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Power;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"(":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.LParentheses;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">")":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.RParentheses;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&amp;":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.BitwiseAnd;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"|":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.BitwiseOr;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&amp;&amp;":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;并且&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"并且":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.And;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"||":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;或者&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"或者":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Or;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"!":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Not;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"==":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"=":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Equal;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"!=":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"≠":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Unequal;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.GT;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.LT;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&gt;=":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"≥":&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.GTOrEqual;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;=":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"≤":&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.LTOrEqual;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;&lt;":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.LShift;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&gt;&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.RShift;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"@":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;包含&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"包含":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Like;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"!@":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"&lt;不包含&gt;":&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"不包含":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.NotLike;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"!!$":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.StartWith;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">"!!@":&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.EndWith;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(isNumerics(value))&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Numeric;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(isDatetime(value))&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Date;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(value.contains(<span class="string">"\""))&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.String;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;ExpressionNodeType.Unknown;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;获取各节点类型的优先级&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;nodeType&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;<span class="keyword">int&nbsp;getNodeTypePRI(ExpressionNodeType&nbsp;nodeType)&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(nodeType)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LParentheses:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;RParentheses:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">9;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//逻辑非是一元操作符,所以其优先级较高&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Not:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">8;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Mod:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">7;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;MultiPly:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Divide:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Power:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">6;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Plus:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Subtract:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">5;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LShift:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;RShift:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">4;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;BitwiseAnd:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;BitwiseOr:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">3;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Equal:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Unequal:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;GT:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LT:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;GTOrEqual:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LTOrEqual:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Like:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;NotLike:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;StartWith:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;EndWith:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">2;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;And:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Or:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">1;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">default:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;判断是否为数值&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;op&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">boolean&nbsp;isNumerics(String&nbsp;op)&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;op.matches(<span class="string">"^[\\+\\-]?(0|[1-9]\\d*|[1-9]\\d*\\.\\d+|0\\.\\d+)");&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;判断是否为日期&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;op&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">boolean&nbsp;isDatetime(String&nbsp;op)&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;op&nbsp;=&nbsp;op.replace(<span class="string">"\"",<span class="string">"").trim();&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;op.matches(<span class="string">"\\d{4}\\-\\d{2}\\-\\d{2}(\\s\\d{2}\\:\\d{2}\\:\\d{2})?");&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;判断某个字符后是否需要更多的操作符&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;c&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">boolean&nbsp;needMoreOperator(<span class="keyword">char&nbsp;c)&nbsp;&nbsp;</span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(c)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'&amp;':&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'|':&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'=':&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'!':&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'&gt;':&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'&lt;':&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;<span class="string">'.':&nbsp;&nbsp;&nbsp;<span class="comment">//小数点&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">true;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt"><span class="comment">//&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//数字则需要更多&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;Character.isDigit(c);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;判断两个字符是否是同一类&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;c1&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;c2&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">boolean&nbsp;IsCongener(<span class="keyword">char&nbsp;c1,&nbsp;<span class="keyword">char&nbsp;c2)&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;((c1&nbsp;==&nbsp;<span class="string">'(')&nbsp;||&nbsp;(c2&nbsp;==&nbsp;<span class="string">'(')){&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;((c1&nbsp;==&nbsp;<span class="string">')')&nbsp;||&nbsp;(c2&nbsp;==&nbsp;<span class="string">')')){&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;((c1&nbsp;==&nbsp;<span class="string">'"')&nbsp;||&nbsp;(c2&nbsp;==&nbsp;<span class="string">'"')){&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(Character.isDigit(c1)&nbsp;||&nbsp;(c1&nbsp;==&nbsp;<span class="string">'.'))&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//c1为数字,则c2也为数字&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(Character.isDigit(c2)&nbsp;||&nbsp;(c2&nbsp;==&nbsp;<span class="string">'.'));&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(!Character.isDigit(c2)&nbsp;&amp;&amp;&nbsp;(c2&nbsp;!=&nbsp;<span class="string">'.'));&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;判断某个字符是否是空白字符&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;c&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">boolean&nbsp;IsWhileSpace(<span class="keyword">char&nbsp;c)&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;c&nbsp;==&nbsp;<span class="string">'&nbsp;'&nbsp;||&nbsp;c&nbsp;==&nbsp;<span class="string">'\t';&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;判断是否是一元操作符节点&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;nodeType&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;<span class="keyword">boolean&nbsp;IsUnitaryNode(ExpressionNodeType&nbsp;nodeType)&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(nodeType&nbsp;==&nbsp;ExpressionNodeType.Plus&nbsp;||&nbsp;nodeType&nbsp;==&nbsp;ExpressionNodeType.Subtract);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;String&nbsp;getValue()&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;value;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setValue(String&nbsp;value)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.value&nbsp;=&nbsp;value;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionNodeType&nbsp;getType()&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;type;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setType(ExpressionNodeType&nbsp;type)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.type&nbsp;=&nbsp;type;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">int&nbsp;getPri()&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;pri;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setPri(<span class="keyword">int&nbsp;pri)&nbsp;{&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.pri&nbsp;=&nbsp;pri;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionNode&nbsp;getUnitaryNode()&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;unitaryNode;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p><br>当需要解析一个表达式时，会把表达式中的每个字符生生成一个ExpressionNode对象，并存储了这个字符的节点类型，字符后面是否有其他字符等一些信息。</p> 
+  <p>3、第三个类：ExpressionException(表达式异常类)</p> 
+  <p>&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;ExpressionException&nbsp;<span class="keyword">extends&nbsp;RuntimeException{&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;<span class="keyword">final&nbsp;<span class="keyword">long&nbsp;serialVersionUID&nbsp;=&nbsp;1L;&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionException()&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">super();&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionException(String&nbsp;msg)&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">super(msg);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionException(String&nbsp;msg,&nbsp;Throwable&nbsp;cause)&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">super(msg,cause);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionException(Throwable&nbsp;cause)&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">super(cause);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p> <br>4、第四个类：ExpressionParser(负责读取表达式生成ExpressionNode对象的类)</p> 
+  <p>&nbsp;</p> 
+  <p>&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;ExpressionParser&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//当前分析的表达式&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;String&nbsp;expression;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//当前读取的位置&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">int&nbsp;position;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;String&nbsp;getExpression()&nbsp;{&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;expression;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setExpression(String&nbsp;expression)&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.expression&nbsp;=&nbsp;expression;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">int&nbsp;getPosition()&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;position;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">void&nbsp;setPosition(<span class="keyword">int&nbsp;position)&nbsp;{&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.position&nbsp;=&nbsp;position;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionParser(String&nbsp;expression)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.expression&nbsp;=&nbsp;expression;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.position&nbsp;=&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;&nbsp;读取下一个表达式节点,如果读取失败则返回null&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;ExpressionNode&nbsp;readNode()&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//空格的位置&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">int&nbsp;whileSpacePos&nbsp;=&nbsp;-<span class="number">1;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">boolean&nbsp;flag&nbsp;=&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;StringBuffer&nbsp;buffer&nbsp;=&nbsp;<span class="keyword">new&nbsp;StringBuffer(<span class="number">10);&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(<span class="keyword">this.position&nbsp;&lt;&nbsp;<span class="keyword">this.expression.length())&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">char&nbsp;c&nbsp;=&nbsp;<span class="keyword">this.expression.charAt(<span class="keyword">this.position);&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(c&nbsp;==&nbsp;<span class="string">'"')&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flag&nbsp;=&nbsp;!flag;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!flag)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.position++;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;buffer.append(c);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(buffer.length()&nbsp;!=&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(flag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.position++;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;buffer.append(c);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(ExpressionNode.IsWhileSpace(c))&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;((whileSpacePos&nbsp;&gt;=&nbsp;<span class="number">0)&nbsp;&amp;&amp;&nbsp;((<span class="keyword">this.position&nbsp;-&nbsp;whileSpacePos)&nbsp;&gt;&nbsp;<span class="number">1))&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"表达式\"%s\"在位置(%s)上的字符非法!",&nbsp;<span class="keyword">this.getExpression(),&nbsp;<span class="keyword">this.getPosition()));&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(buffer.length()&nbsp;==&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;whileSpacePos&nbsp;=&nbsp;-<span class="number">1;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;whileSpacePos&nbsp;=&nbsp;<span class="keyword">this.position;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.position++;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">continue;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;((buffer.length()&nbsp;==&nbsp;<span class="number">0)&nbsp;||&nbsp;ExpressionNode.IsCongener(c,&nbsp;buffer.charAt(buffer.length()&nbsp;-&nbsp;<span class="number">1)))&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">this.position++;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;buffer.append(c);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!ExpressionNode.needMoreOperator(c))&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(buffer.length()&nbsp;==&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">null;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionNode&nbsp;node&nbsp;=&nbsp;<span class="keyword">new&nbsp;ExpressionNode(buffer.toString());&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(node.getType()&nbsp;==&nbsp;ExpressionNodeType.Unknown)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"表达式\"%s\"在位置%s上的字符\"%s\"非法!",&nbsp;<span class="keyword">this.getExpression(),&nbsp;<span class="keyword">this.getPosition()&nbsp;-&nbsp;node.getValue().length(),&nbsp;node.getValue()));&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;node;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p> <br>这个类处理将待解析的表达式，解析并创建ExpressionNode对象。</p> 
+  <p>5、第五个类：ExpressionEvaluator(解析公式并返回结果的类)</p> 
+  <p>&nbsp;</p> 
+  <div class="dp-highlighter bg_java"> 
+   <div class="bar"> 
+    <div class="tools">
+     <strong>[java]</strong>&nbsp;<a class="ViewSource" title="view plain" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">view plain</a><span data-mod="popu_168"><span data-mod="popu_168">&nbsp;<a class="CopyToClipboard" title="copy" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">copy</a></span></span> 
+     <div>
+      &nbsp;
+     </div> <span data-mod="popu_168"><span data-mod="popu_169">&nbsp;<a class="PrintSource" title="print" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">print</a><a class="About" title="?" href="http://blog.csdn.net/longyuhome/article/details/51646628#" target="_blank" rel="noopener">?</a></span></span>
+    </div> 
+   </div> 
+   <ol class="dp-j" start="1"> 
+    <li class="alt"><span class="keyword">public&nbsp;<span class="keyword">class&nbsp;ExpressionEvaluator&nbsp;{&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;ExpressionEvaluator()&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;将算术表达式转换为逆波兰表达式&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;expression&nbsp;要计算的表达式,如"1+2+3+4"&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;List&lt;ExpressionNode&gt;&nbsp;parseExpression(String&nbsp;expression)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if(StringUtils.isEmpty(expression)){&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">new&nbsp;ArrayList&lt;ExpressionNode&gt;();&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;List&lt;ExpressionNode&gt;&nbsp;listOperator&nbsp;=&nbsp;<span class="keyword">new&nbsp;ArrayList&lt;ExpressionNode&gt;(<span class="number">10);&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Stack&lt;ExpressionNode&gt;&nbsp;stackOperator&nbsp;=&nbsp;<span class="keyword">new&nbsp;Stack&lt;ExpressionNode&gt;();&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionParser&nbsp;expParser&nbsp;=&nbsp;<span class="keyword">new&nbsp;ExpressionParser(expression);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionNode&nbsp;beforeExpNode&nbsp;=&nbsp;<span class="keyword">null;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//前一个节点&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionNode&nbsp;unitaryNode&nbsp;=&nbsp;<span class="keyword">null;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//一元操作符&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionNode&nbsp;expNode;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//是否需要操作数&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">boolean&nbsp;requireOperand&nbsp;=&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;((expNode&nbsp;=&nbsp;expParser.readNode())&nbsp;!=&nbsp;<span class="keyword">null)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(&nbsp;(expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.Numeric)&nbsp;||&nbsp;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.String)&nbsp;||&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.Date))&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//操作数，&nbsp;直接加入后缀表达式中&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(unitaryNode&nbsp;!=&nbsp;<span class="keyword">null)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//设置一元操作符节点&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;expNode.setUnitaryNode(unitaryNode);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unitaryNode&nbsp;=&nbsp;<span class="keyword">null;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;listOperator.add(expNode);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;requireOperand&nbsp;=&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">continue;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;<span class="keyword">if&nbsp;(expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.LParentheses)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//左括号，&nbsp;直接加入操作符栈&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stackOperator.push(expNode);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">continue;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;<span class="keyword">if&nbsp;(expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.RParentheses)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//右括号则在操作符栈中反向搜索，直到遇到匹配的左括号为止，将中间的操作符依次加到后缀表达式中。&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionNode&nbsp;lpNode&nbsp;=&nbsp;<span class="keyword">null;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(stackOperator.size()&nbsp;&gt;&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;lpNode&nbsp;=&nbsp;stackOperator.pop();&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(lpNode.getType()&nbsp;==&nbsp;ExpressionNodeType.LParentheses)&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;listOperator.add(lpNode);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(lpNode&nbsp;==&nbsp;<span class="keyword">null&nbsp;||&nbsp;lpNode.getType()&nbsp;!=&nbsp;ExpressionNodeType.LParentheses)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"在表达式\"%s\"中没有与在位置(%s)上\")\"匹配的\"(%s)\"字符!",&nbsp;expParser.getExpression(),&nbsp;expParser.getPosition()));&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(stackOperator.size()&nbsp;==&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//第一个节点则判断此节点是否是一元操作符"+,-,!,("中的一个,否则其它都非法&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(listOperator.size()&nbsp;==&nbsp;<span class="number">0&nbsp;&amp;&amp;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;!(expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.LParentheses&nbsp;||&nbsp;expNode.getType()&nbsp;==&nbsp;ExpressionNodeType.Not))&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//后缀表达式没有任何数据则判断是否是一元操作数&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(ExpressionNode.IsUnitaryNode(expNode.getType()))&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unitaryNode&nbsp;=&nbsp;expNode;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//丢失操作数&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"表达式\"%s\"在位置(%s)上缺少操作数!",&nbsp;expParser.getExpression(),&nbsp;expParser.getPosition()));&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//直接压入操作符栈&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stackOperator.push(expNode);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;requireOperand&nbsp;=&nbsp;<span class="keyword">true;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//下一个节点需要操作数&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">continue;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(requireOperand)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//如果需要操作数则判断当前的是否是"+","-"号(一元操作符),如果是则继续&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(ExpressionNode.IsUnitaryNode(expNode.getType())&nbsp;&amp;&amp;&nbsp;unitaryNode&nbsp;==&nbsp;<span class="keyword">null)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;unitaryNode&nbsp;=&nbsp;expNode;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//丢失操作数&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"表达式\"%s\"在位置({1})上缺少操作数!",&nbsp;expParser.getExpression(),&nbsp;expParser.getPosition()));&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//对前面的所有操作符进行优先级比较&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">do&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//取得上一次的操作符&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beforeExpNode&nbsp;=&nbsp;stackOperator.peek();&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//如果前一个操作符优先级较高，则将前一个操作符加入后缀表达式中&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(beforeExpNode.getType()&nbsp;!=&nbsp;ExpressionNodeType.LParentheses&nbsp;&amp;&amp;&nbsp;(beforeExpNode.getPri()&nbsp;-&nbsp;expNode.getPri())&nbsp;&gt;=&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;listOperator.add(stackOperator.pop());&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;<span class="keyword">while&nbsp;(stackOperator.size()&nbsp;&gt;&nbsp;<span class="number">0);&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//将操作符压入操作符栈&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;stackOperator.push(expNode);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;requireOperand&nbsp;=&nbsp;<span class="keyword">true;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(requireOperand)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//丢失操作数&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"表达式\"%s\"在位置({1})上缺少操作数!",&nbsp;expParser.getExpression(),&nbsp;expParser.getPosition()));&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//清空堆栈&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(stackOperator.size()&nbsp;&gt;&nbsp;<span class="number">0)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//取得操作符&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;beforeExpNode&nbsp;=&nbsp;stackOperator.pop();&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(beforeExpNode.getType()&nbsp;==&nbsp;ExpressionNodeType.LParentheses)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(String.format(<span class="string">"表达式\"%s\"中括号不匹配,丢失右括号!",&nbsp;expParser.getExpression(),&nbsp;expParser.getPosition()));&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;listOperator.add(beforeExpNode);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;listOperator;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;对逆波兰表达式进行计算&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;nodes&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;Object&nbsp;CalcExpression(List&lt;ExpressionNode&gt;&nbsp;nodes)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(nodes&nbsp;==&nbsp;<span class="keyword">null&nbsp;||&nbsp;nodes.size()&nbsp;==&nbsp;<span class="number">0)&nbsp;<span class="keyword">return&nbsp;<span class="keyword">null;&nbsp;&nbsp;</span></span></span></span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(nodes.size()&nbsp;&gt;&nbsp;<span class="number">1)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">int&nbsp;index&nbsp;=&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//储存数据&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ArrayList&nbsp;values&nbsp;=&nbsp;<span class="keyword">new&nbsp;ArrayList();&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">while&nbsp;(index&nbsp;&lt;&nbsp;nodes.size())&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ExpressionNode&nbsp;node&nbsp;=&nbsp;nodes.get(index);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(node.getType())&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//如果是数字，则将值存入&nbsp;values&nbsp;中&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Numeric:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;String:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Date:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;values.add(node.getNumeric());&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index++;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">default:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//二元表达式，需要二个参数，&nbsp;如果是Not的话，则只要一个参数&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">int&nbsp;paramCount&nbsp;=&nbsp;<span class="number">2;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(node.getType()&nbsp;==&nbsp;ExpressionNodeType.Not)&nbsp;paramCount&nbsp;=&nbsp;<span class="number">1;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//计算操作数的值&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(values.size()&nbsp;&lt;&nbsp;paramCount)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(<span class="string">"缺少操作数");&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//传入参数&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Object[]&nbsp;data&nbsp;=&nbsp;<span class="keyword">new&nbsp;Object[paramCount];&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">for&nbsp;(<span class="keyword">int&nbsp;i&nbsp;=&nbsp;<span class="number">0;&nbsp;i&nbsp;&lt;&nbsp;paramCount;&nbsp;i++)&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data[i]&nbsp;=&nbsp;values.get(index&nbsp;-&nbsp;paramCount&nbsp;+&nbsp;i);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//将计算结果再存入当前节点&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;node.setNumeric(calculate(node.getType(),&nbsp;data));&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;node.setType(&nbsp;ExpressionNodeType.Numeric);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">//将操作数节点删除&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">for&nbsp;(<span class="keyword">int&nbsp;i&nbsp;=&nbsp;<span class="number">0;&nbsp;i&nbsp;&lt;&nbsp;paramCount;&nbsp;i++)&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nodes.remove(index&nbsp;-&nbsp;i&nbsp;-&nbsp;<span class="number">1);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;values.remove(index&nbsp;-&nbsp;i&nbsp;-&nbsp;<span class="number">1);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index&nbsp;-=&nbsp;paramCount;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">break;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(nodes.size()&nbsp;!=&nbsp;<span class="number">1)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(<span class="string">"缺少操作符或操作数");&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(nodes.get(<span class="number">0).getType())&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Numeric:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;nodes.get(<span class="number">0).getNumeric();&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;String:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Date:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;nodes.get(<span class="number">0).getNumeric().toString().replace(<span class="string">"\"",&nbsp;<span class="string">"");&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;ExpressionException(<span class="string">"缺少操作数");&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;计算节点的值&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;nodeType&nbsp;节点的类型&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;data&nbsp;要计算的值,有可能是两位或一位数&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;Object&nbsp;calculate(ExpressionNodeType&nbsp;nodeType,&nbsp;Object[]&nbsp;data)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">double&nbsp;d1,&nbsp;d2;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">boolean&nbsp;&nbsp;b1,&nbsp;b2;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Date&nbsp;time1,time2;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Object&nbsp;obj1&nbsp;=&nbsp;data[<span class="number">0];&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Object&nbsp;obj2&nbsp;=&nbsp;data[<span class="number">1];&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;str1&nbsp;=&nbsp;obj1.toString();&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;str2&nbsp;=&nbsp;obj2.toString();&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">boolean&nbsp;dateflag&nbsp;=&nbsp;ExpressionNode.isDatetime(str1)&nbsp;||&nbsp;ExpressionNode.isDatetime(str2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">boolean&nbsp;strflag&nbsp;=&nbsp;str1.contains(<span class="string">"\"")&nbsp;||&nbsp;str2.contains(<span class="string">"\"");&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;str1&nbsp;=&nbsp;str1.replace(<span class="string">"\"",&nbsp;<span class="string">"");&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;str2&nbsp;=&nbsp;str2.replace(<span class="string">"\"",&nbsp;<span class="string">"");&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">switch&nbsp;(nodeType)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Plus:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!strflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;+&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">new&nbsp;StringBuffer(str1&nbsp;+&nbsp;str2).toString();&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Subtract:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;d1&nbsp;-&nbsp;d2;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;MultiPly:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;d1&nbsp;*&nbsp;d2;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Divide:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(d2&nbsp;==&nbsp;<span class="number">0)<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;RuntimeException();&nbsp;&nbsp;</span></span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;d1&nbsp;/&nbsp;d2;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Power:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;Math.pow((<span class="keyword">double)d1,&nbsp;(<span class="keyword">double)d2);&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Mod:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(d2&nbsp;==&nbsp;<span class="number">0)&nbsp;<span class="keyword">throw&nbsp;<span class="keyword">new&nbsp;RuntimeException();&nbsp;&nbsp;</span></span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;d1&nbsp;%&nbsp;d2;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;BitwiseAnd:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(<span class="keyword">int)d1&nbsp;&amp;&nbsp;(<span class="keyword">int)d2;&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;BitwiseOr:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(<span class="keyword">int)d1&nbsp;|&nbsp;(<span class="keyword">int)d2;&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;And:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1&nbsp;=&nbsp;ConvertToBool(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b2&nbsp;=&nbsp;ConvertToBool(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;b1&nbsp;&amp;&amp;&nbsp;b2;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Or:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1&nbsp;=&nbsp;ConvertToBool(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b2&nbsp;=&nbsp;ConvertToBool(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;b1&nbsp;||&nbsp;b2;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Not:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b1&nbsp;=&nbsp;ConvertToBool(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;!b1;&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Equal:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!dateflag)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(strflag)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;str1.equals(str2);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;==&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time1&nbsp;=&nbsp;DateUtils.parse(str1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time2&nbsp;=&nbsp;DateUtils.parse(str2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(time1.getTime()&nbsp;==&nbsp;time2.getTime());&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Unequal:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!dateflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(strflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(!str1.equals(str2));&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;!=&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time1&nbsp;=&nbsp;DateUtils.parse(str1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time2&nbsp;=&nbsp;DateUtils.parse(str2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(time1.getTime()&nbsp;!=&nbsp;time2.getTime());&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;GT:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!dateflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;&gt;&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time1&nbsp;=&nbsp;DateUtils.parse(str1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time2&nbsp;=&nbsp;DateUtils.parse(str2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(time1.getTime()&nbsp;&gt;&nbsp;time2.getTime());&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LT:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!dateflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;&lt;&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time1&nbsp;=&nbsp;DateUtils.parse(str1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time2&nbsp;=&nbsp;DateUtils.parse(str2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(time1.getTime()&nbsp;&lt;&nbsp;time2.getTime());&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;GTOrEqual:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!dateflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;&gt;=&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time1&nbsp;=&nbsp;DateUtils.parse(str1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time2&nbsp;=&nbsp;DateUtils.parse(str2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(time1.getTime()&nbsp;&gt;=&nbsp;time2.getTime());&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LTOrEqual:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!dateflag)&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(d1&nbsp;&lt;=&nbsp;d2);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time1&nbsp;=&nbsp;DateUtils.parse(str1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;time2&nbsp;=&nbsp;DateUtils.parse(str2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(time1.getTime()&nbsp;&lt;=&nbsp;time2.getTime());&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;LShift:&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(<span class="keyword">long)d1&nbsp;&lt;&lt;&nbsp;(<span class="keyword">int)d2;&nbsp;&nbsp;</span></span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;RShift:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d1&nbsp;=&nbsp;ConvertToDecimal(obj1);&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;d2&nbsp;=&nbsp;ConvertToDecimal(obj2);&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(<span class="keyword">long)d1&nbsp;&gt;&gt;&nbsp;(<span class="keyword">int)d2;&nbsp;&nbsp;</span></span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;Like:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!strflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;str1.contains(str2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;NotLike:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!strflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;!str1.contains(str2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;StartWith:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!strflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;str1.startsWith(str2);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">case&nbsp;EndWith:&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(!strflag)&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="keyword">false;&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;str1.endsWith(str2);&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;<span class="number">0;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;某个值转换为bool值&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;value&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;Boolean&nbsp;ConvertToBool(Object&nbsp;value)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(value&nbsp;<span class="keyword">instanceof&nbsp;Boolean){&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;(Boolean)value;&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else{&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;value&nbsp;!=&nbsp;<span class="keyword">null;&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;将某个值转换为decimal值&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;value&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">private&nbsp;<span class="keyword">static&nbsp;Double&nbsp;ConvertToDecimal(Object&nbsp;value)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(value&nbsp;<span class="keyword">instanceof&nbsp;Boolean)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;((Boolean)value&nbsp;?&nbsp;1d&nbsp;:&nbsp;0d);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">else&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;Double.parseDouble(value.toString());&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="comment">/**&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@param&nbsp;expression&nbsp;要计算的表达式,如"1+2+3+4"&nbsp;</span></li> 
+    <li class="alt"><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*&nbsp;@return&nbsp;返回计算结果,如果带有逻辑运算符则返回true/false,否则返回数值&nbsp;</span></li> 
+    <li><span class="comment">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*/&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;Object&nbsp;eval(String&nbsp;expression)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;CalcExpression(parseExpression(expression));&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">public&nbsp;<span class="keyword">static&nbsp;Object&nbsp;evalThreeOperand(String&nbsp;expression)&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">int&nbsp;index&nbsp;=&nbsp;expression.indexOf(<span class="string">"?");&nbsp;&nbsp;</span></span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(index&nbsp;&gt;&nbsp;-<span class="number">1)&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;str&nbsp;=&nbsp;expression.substring(<span class="number">0,&nbsp;index);&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;str2&nbsp;=&nbsp;expression.substring(index&nbsp;+&nbsp;<span class="number">1);&nbsp;&nbsp;</span></li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;index&nbsp;=&nbsp;str2.indexOf(<span class="string">":");&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if&nbsp;(&nbsp;Boolean.parseBoolean((CalcExpression(parseExpression(str))).toString()))&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;eval(str2.substring(<span class="number">0,&nbsp;index));&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;eval(str2.substring(index&nbsp;+&nbsp;<span class="number">1));&nbsp;&nbsp;</span></span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">return&nbsp;CalcExpression(parseExpression(expression));&nbsp;&nbsp;</span></li> 
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;&nbsp;</li> 
+    <li class="alt">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</li> 
+    <li>}&nbsp;&nbsp;</li> 
+   </ol>
+  </div> 
+  <p> <br>这个类是最重要的一个类，parseExpression方法会将待解析的表达式转变为ExpressionNode的集合，calculate方法会将两个值进行各种运算操作，也是在这个方法中，我们填写扩展的一些方法。</p> 
+  <p>这个工具的介绍就这些了，希望可以帮助到有需要的人。</p> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 14:27</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">3968</span>)&nbsp; 评论(<span id="post_comment_count">1</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614869" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614869);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614869', targetLink: 'https://www.cnblogs.com/csguo/p/7614869.html', title: '基于Java的简易表达式解析工具(二)' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614869, cb_entryCreatedDate = '2017-09-30 14:27', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419866506/-8978724638310499922.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>

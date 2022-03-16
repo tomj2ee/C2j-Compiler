@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发编译器：中间语言格式</title>
+ <body> java开发编译器：中间语言格式</body>
+<div class="post"> 
+ <h1 class="postTitle"> <a id="cb_post_title_url" class="postTitle2 vertical-middle" href="https://www.cnblogs.com/csguo/p/7614988.html"> <span role="heading" aria-level="2">java开发编译器：中间语言格式</span> </a> </h1> 
+ <div id="cnblogs_post_body" class="blogpost-body blogpost-body-html"> 
+  <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程：</p> 
+  <p><a href="http://study.163.com/course/courseMain.htm?courseId=1002830012" target="_blank" rel="noopener">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+  <p>在通常情况下，编译器会将目标语言转换成某种中间语言格式，而不是直接将源代码转换成二进制机器指令。不少C语言编译器，都会将代码编译成汇编语言，然后再通过汇编编译器将汇编代码转换成目标机器可执行的二进制代码，这么说来，汇编语言其实也是一种中间语言。</p> 
+  <p>编译成中间语言有很多优势，一是可以优化，先把中间语言进行高度优化后，再将其转换成机器指令，那么程序的速度可以成倍的提高。其二是可以实现跨平台，针对同一种中间语言，不同平台的编译器可以将其转换成与该平台兼容的二进制指令，从而使得一种源程序代码可以运行到不同的硬件平台上。</p> 
+  <p>还有一种好处，就是可以通过虚拟机来运行中间语言，从而突破硬件平台对语言的限制，例如java字节码显然就是一种中间语言，运行到java虚拟机上。我们本章或许会将C语言转义成某种字节码，然后开发一个虚拟机来运行生成的字节码。由此，接下来的重点，我们将聚焦到指令集的格式，以及虚拟机的架构设计上。</p> 
+  <p>中间语言的格式：三元组，四元组，逆向波兰格式</p> 
+  <p>中间语言的指令格式，一般如标题所提及的一样，对大多数汇编语言来说，采取的就是三元组形式，这种格式的指令一般包含三部分：操作符，数据源，结果目标。例如指令：&nbsp;<br>ADD D0, D1&nbsp;<br>意思是将D0寄存器的数值与D1相加，并把相加后的结果存放到寄存器D1中。其实C语言也有等价功能的代码表示：&nbsp;<br>d += s;&nbsp;<br>上面的语句用数学表示法如下：&nbsp;<br>(+=, d, s)</p> 
+  <p>三元组指令格式又可以称为两地址指令，因为大多数指令都由源地址，目标地址，以及操作符构成。</p> 
+  <p>四元组一般由四部分组成，两个数据源地址，一个操作符，一个目标地址，例如：&nbsp;<br>d = s1 + s2;&nbsp;<br>数学化的表现形式如下：&nbsp;<br>(+, d, s1, s2)&nbsp;<br>有时候四元组指令并非都包含四部分，例如赋值语句：&nbsp;<br>(=, d, s, -)&nbsp;<br>第四部分的 -, 不是减号，而是横杆，表示这一部分为空。第一部分表示操作，不能为空，所以上面指令的意思是：&nbsp;<br>d = s;</p> 
+  <p>无论是三元组还是四元组，有时候目标地址无需明确的包含在指令中，例如下面两条三元组指令：</p> 
+  <p>(LESS_THAN, a, b)&nbsp;<br>(GOTO, target, -)</p> 
+  <p>第一条指令比较两个数的大小，并且将比较结果存放在某个地方，第二条指令的执行将依赖第一条指令的结果，如果第一条指令结果为true, 那么第二条指令将使得程序流跳转到target指定的地址。</p> 
+  <p>有时候，算术运算的指令也不会涉及到目标地址，例如下面两条三元组语句将执行A = B + C：&nbsp;<br>(+, B, C)&nbsp;<br>(=, A, .-1)&nbsp;<br>第一条语句执行完加法运算后，把结果存储到一个内部寄存器叫”加法寄存器”</p> 
+  <p>第二条三元组语句，第三部分的”.”, 表示当前语句所在的地址，那么 “.-1”, 表示的就是上一条语句的地址，因此，第二条语句的作用是把上一条语句的运算结果赋值给A.</p> 
+  <p>三元组相对于四元组有一个优势，就是它与大多数汇编语言的格式很接近。我们本章将代码编译后，所形成的中间语言将采用三元组格式。但四元组也有三元组无法企及的好处，一是简练，例如(+, d, s1, s2), 就需要两条三元组来完成同等功能：&nbsp;<br>(=, d, s1)&nbsp;<br>(+=, d, s2)</p> 
+  <p>此外，四元组相比于三元组，更容易进行优化，例如上面的两条三元组语句，在优化时，需要将他们当做一个整体对待，代码挪动时需要两条语句一起挪动，而四元组只要挪动一条语句就可以了。</p> 
+  <p>第三种常用的中间语言格式是逆向波兰格式，PostScript, HP计算器，使用的中间代码就是这种格式。这种格式的语句比较容易解析，同时语句解析时不需要分配临时变量。例如表达式：</p> 
+  <p>( 1 + 2 ) * (3 + 4)&nbsp;<br>对应的逆向波兰格式为：</p> 
+  <p>1 2 + 3 4 + *</p> 
+  <p>逆向波兰表达式的解析需要一个堆栈, 例如上面语句的解析过程如下：&nbsp;<br>stack input action&nbsp;<br>empty 1 2 + 3 4 + * push 1&nbsp;<br>1 2 + 3 4 + * push 2&nbsp;<br>1 2 + 3 4 + * 将栈顶两元素出栈相加，&nbsp;<br>然后将相加的结果压入&nbsp;<br>堆栈&nbsp;<br>3 3 4 + * push 3&nbsp;<br>3 3 4 + * push 4&nbsp;<br>3 3 4 + * 将栈顶两元素出栈相加然&nbsp;<br>后将相加的结果压入堆栈</p> 
+  <p>3 7 * 将栈顶两元素出栈相乘，&nbsp;<br>然后将相加的结果压入堆栈&nbsp;<br>21 栈顶元素就是计算结果</p> 
+ </div> 
+ <div class="clear"></div> 
+ <div id="blog_post_info_block" role="contentinfo"> 
+  <div id="blog_post_info"></div> 
+  <div class="clear"></div> 
+  <div id="post_next_prev"></div> 
+ </div> 
+ <div class="postDesc">
+  posted on <span id="post-date">2017-09-30 14:54</span>&nbsp; <a href="https://www.cnblogs.com/csguo/">csguo</a>&nbsp; 阅读(<span id="post_view_count">1574</span>)&nbsp; 评论(<span id="post_comment_count">0</span>)&nbsp; <a href="https://i.cnblogs.com/EditPosts.aspx?postid=7614988" rel="nofollow">编辑</a>&nbsp; <a href="javascript:void(0)" onclick="AddToWz(7614988);return false;">收藏</a>&nbsp; <a href="javascript:void(0)" onclick="reportManager.report({ currentUserId: '', targetType: 'blogPost', targetId: '7614988', targetLink: 'https://www.cnblogs.com/csguo/p/7614988.html', title: 'java开发编译器：中间语言格式' })">举报</a>
+ </div> 
+</div> 
+<script>
+    var cb_entryId = 7614988, cb_entryCreatedDate = '2017-09-30 14:54', cb_postType = 1;
+    var allowComments = true, cb_blogId = 370205, cb_blogApp = 'csguo', cb_blogUserGuid = '20e0a68b-fbf8-df11-ac81-842b2b196315';
+    mermaidRender.render()
+    markdown_highlight()
+    zoomManager.apply("#cnblogs_post_body img:not(.code_img_closed):not(.code_img_opened)");
+    updatePostStats(
+            [cb_entryId],
+            function(id, count) { $("#post_view_count").text(count) },
+            function(id, count) { $("#post_comment_count").text(count) })
+</script> <a id="!comments"></a> 
+<div id="blog-comments-placeholder"></div> 
+<div id="comment_form" class="commentform"> <a name="commentform"></a> 
+ <div id="divCommentShow"></div> 
+ <div id="comment_nav">
+  <span id="span_refresh_tips"></span><a href="javascript:void(0);" onclick="return RefreshCommentList();" id="lnk_RefreshComments" runat="server" clientidmode="Static">刷新评论</a><a href="#" onclick="return RefreshPage();">刷新页面</a><a href="#top">返回顶部</a>
+ </div> 
+ <div id="comment_form_container"></div> 
+ <div class="ad_text_commentbox" id="ad_text_under_commentbox"></div> 
+ <div id="cnblogs_ch"></div> 
+ <div id="opt_under_post"></div> 
+ <div id="cnblogs_c1" class="under-post-card"> 
+  <div id="div-gpt-ad-1592365906576-0" style="width: 300px; height: 250px;"></div> 
+ </div> 
+ <div id="under_post_card1"></div> 
+ <div id="cnblogs_c2" class="under-post-card"> <a href="https://developer.huawei.com/consumer/cn/forum/topic/0201820468285270027?fid=23&amp;ha_source=bokeyuan" rel="nofollow" target="_blank" onclick="countCreativeClicks('C2-华为专区-HWD2022')"> <img src="img/1647419860185/659410837449114883.jpg" alt="" onload="countCreativeImpressions('C2-华为专区-HWD2022')"> </a> 
+ </div> 
+ <div id="under_post_card2"></div> 
+ <div id="HistoryToday" class="under-post-card"></div> 
+ <script type="text/javascript">
+        var commentManager = new blogCommentManager();
+        commentManager.renderComments(0);
+        fixPostBody();
+
+                window.tocManager.displayDisableTocTips = false;
+                window.tocManager.generateToc();
+            setTimeout(function() { incrementViewCount(cb_entryId); }, 50);        deliverT2();
+        deliverC1C2();
+        loadNewsAndKb();
+LoadPostCategoriesTags(cb_blogId, cb_entryId);        LoadPostInfoBlock(cb_blogId, cb_entryId, cb_blogApp, cb_blogUserGuid);
+        GetPrevNextPost(cb_entryId, cb_blogId, cb_entryCreatedDate, cb_postType);
+        loadOptUnderPost();
+        GetHistoryToday(cb_blogId, cb_blogApp, cb_entryCreatedDate);
+    </script> 
+</div> </html>
