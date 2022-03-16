@@ -6,9 +6,8 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import javax.xml.soap.SAAJResult;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -102,8 +101,36 @@ public class Csdn {
 
     }
 
+
+    void writeIndex() throws IOException {
+        //D:\all_project\github\C2j-Compiler\src\main\resources\doc
+        String url = "D:\\all_project\\github\\C2j-Compiler\\src\\main\\resources\\doc";
+        File f = new File(url);
+        File[] lst = f.listFiles();
+        StringWriter writer = new StringWriter();
+        writer.append("<!DOCTYPE html>\n" +
+                "<html lang=\"zh-CN\">\n" +
+                "<head>\n" +
+                "    <meta charset=\"utf-8\">\n");
+        writer.append("</head>\n");
+        writer.append("<body>\n");
+        for (File i : lst) {
+            String name = i.getName();
+            if (name.endsWith(".html")) {
+                String t=name.substring(0,name.lastIndexOf("."));
+                String a = "<a  target=\"_blank\" href=\"" + name + "\">" + t + "</a><br/>\n\n";
+                writer.write(a);
+            }
+        }
+        writer.append("</body>\n");
+        writer.append("</html>\n");
+        byte[] bytes = writer.getBuffer().toString().getBytes();
+        writeByteArrayToFile(new File(baseDir + "index.html"), bytes);
+    }
+
     public static void main(String[] args) throws IOException {
         Csdn d = new Csdn();
-        d.getUrlList();
+       // d.getUrlList();
+        d.writeIndex();
     }
 }
