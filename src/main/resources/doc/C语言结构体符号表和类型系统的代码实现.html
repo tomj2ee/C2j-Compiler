@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> C语言结构体符号表和类型系统的代码实现</title>
+ <body> C语言结构体符号表和类型系统的代码实现</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>代码讲解和调试流程请参看视频： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1003169025">Linux kernel Hacker, 从零构建自己的内核</a></p> 
+ <p>上一节，我们研究了如何在语法上解析结构体，这一节，我们在语法分析的基础上，实现结构体符号表和类型系统的代码，我们要解析的结构体定义如下：</p> 
+ <pre class="prettyprint"><code class="language-C hljs cs"><span class="hljs-keyword">struct</span> tag {
+    <span class="hljs-keyword">int</span> *a, b;
+    <span class="hljs-keyword">long</span> c;
+    sturct tag *d;
+}name;</code></pre> 
+ <p>前一节我们已经分析过语法解析的步骤，现在我们沿着前面描述的步骤，在给定步骤处采取相应措施，从而在整个语法解析流中构建结构体的符号表和类型系统。</p> 
+ <h4 id="语法解析过程中实现符号表和类型系统构建">语法解析过程中实现符号表和类型系统构建</h4> 
+ <p>1: 解析器通过shift 操作将关键字struct 和 变量名tag 读入，变量名会给解析器返回标签NAME, 然后根据表达式 TAG -&gt; NAME 做reduce操作，此时我们可以建立一个StructDefine对象，用来描述当前变量的类型是结构体，StructDefine代码如下：</p> 
+ <pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">/*
+ * struct argotiers {
+ *     int  (*Clopin)();
+ *     double  Mathias[5];
+ *     struct  argotiers*  Guillaume;
+ *     struct  pstruct {int a;} Pierre; 
+ * }
+ */</span>
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StructDefine</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> String tag; <span class="hljs-comment">//结构体的名称,例如上面的例子中，对应该变量的值为 "argotiers"</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span>  level; <span class="hljs-comment">//结构体的间套层次</span>
+    <span class="hljs-keyword">private</span> Symbol fields; <span class="hljs-comment">//对应结构体里的各个变量类型</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">StructDefine</span>(String tag, <span class="hljs-keyword">int</span> level, Symbol fields) {
+        <span class="hljs-keyword">this</span>.tag = tag;
+        <span class="hljs-keyword">this</span>.level = level;
+        <span class="hljs-keyword">this</span>.fields = fields;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFields</span>(Symbol fields) {
+        <span class="hljs-keyword">this</span>.fields = fields;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTag</span>() {
+        <span class="hljs-keyword">return</span> tag;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLevel</span>() {
+        <span class="hljs-keyword">return</span> level;
+    }
+
+    <span class="hljs-keyword">public</span> Symbol <span class="hljs-title">getFields</span>() {
+        <span class="hljs-keyword">return</span> fields;
+    }
+}</code></pre> 
+ <p>此时属性堆栈上就有了一个StructDefine对象： <br> <img src="img/1647416941083/8891515583198317406.jpg" alt="这里写图片描述" title=""> <br> 同时将它加入到一个专门的HashMap对象，键值是StructDefine对象的tag字符串。</p> 
+ <p>2： 解析器通过shift操作读入左括号和接下来的关键字int, int对应的标签是TYPE,根据TYPE_SPECIFIER -&gt; TYPE，解析器会进行reduce操作，同时为int建立一个Speicifer对象，这样，属性堆栈上就有两个对象： <br> <img src="img/1647416941180/3059369981294465966.jpg" alt="这里写图片描述" title=""></p> 
+ <p>3: 进过一系列reduce操作后，int后面的*号被读入，解析器得到它的标签STAR,接下来解析器继续读入星号后面的变量名a, 在通过表达式NEW_NAME -&gt; .NAME进行reduce时，为变量a建立symbol对象： <br> <img src="img/1647416941234/-7964073622546250363.jpg" alt="这里写图片描述" title=""></p> 
+ <p>4.从非终结符NEW_NAME开始，经过递归：VAR_DECL -&gt; .NEW_NAME，于是解析堆栈顶部的两个元素，一个是* ，另一个是reduce后得到的VAR_DECL,这两个元素构成了表达式：VAR_DECL -&gt; .STAR VAR_DECL 右边，于是可以进行reduce操作，同时为属性堆栈顶部的Symbol建立一个Declaratord对象： <br> <img src="img/1647416941328/6226299614257085596.jpg" alt="这里写图片描述" title=""> </p> 
+ <p>5: 解析器接着读入逗号(COMMA), 和变量名b, 然后根据表达式：NEW_NAME -&gt; .NAME进行reduce, 同时为变量b构造symbol对象：</p> 
+ <p><img src="img/1647416941400/7310336700823129888.jpg" alt="这里写图片描述" title=""></p> 
+ <p>6: 经过两次变换：VAR_DECL -&gt; NEW_NAME， DECL -&gt; VAR_DECL，将非终结符DECL传入解析堆栈，于是解析堆栈上的三个元素为：DECL_LIST， COMMA ，DECL。它们正好满足表达式：DECL_LIST -&gt; .DECL_LIST COMMA DECL,于是进行一次reduce操作，此时，将变量b的Symbo与变量a的Symbol连接到一起： <br> <img src="img/1647416941473/-6840640467776050265.jpg" alt="这里写图片描述" title=""></p> 
+ <p>7：解析器把变量b后面的分号读进来，从而解析堆栈上头三个元素分别是：SPECIFIERS， DECL_LIST， SEMI。他们正好构成了表达式DEF -&gt; .SPECIFIERS DECL_LIST SEMI 的右边部分，于是可以根据该表达式进行reduce操作，这一次，解析器将类型说明对象Specifier添加到属性堆栈上的每一个Symbol对象： <br> <img src="img/1647416941545/8186957144677903750.jpg" alt="这里写图片描述" title=""></p> 
+ <p>8: 接着通过表达式DEF_LIST -&gt; .DEF将非终结符DEF换成DEF_LIST,然后读入下一个关键字long,同时得到对应的标签TYPE, 于是再次通过表达式TYPE_SPECIFIER -&gt; .TYPE进行reduce操作，同时在属性堆栈上创建一个Specifier对象： <br> <img src="img/1647416941722/9046060638321186377.jpg" alt="这里写图片描述" title=""> <br> 然后根据表达式TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER，SPECIFIERS -&gt; .TYPE_OR_CLASS进行两次变换，将SPECIFIERS非终结符压入解析堆栈。</p> 
+ <p>9：读入long后面的变量c,返回它的标签NAME,依据表达式NEW_NAME -&gt; .NAME进行reduce,同时生成一个Symbol对象： <br> <img src="img/1647416941966/-504751392487961592.jpg" alt="这里写图片描述" title=""> <br> 接着通过三个表达式：VAR_DECL -&gt; .NEW_NAME，DECL -&gt; .VAR_DECL，DECL_LIST -&gt; .DECL进行变换，将非终结符DECL_LIST压入解析堆栈。</p> 
+ <p>10：读入变量c后面的分号(SEMI),此时解析堆栈上的头三个元素构成表达式：DEF -&gt; .SPECIFIERS DECL_LIST SEMI的右边，于是解析器根据该表达式进行变换，同时将Specifier{isLong:true}这个对象添加到顶部Symbol对象的类型列表： <br> <img src="img/1647416942138/-1655567867990397872.jpg" alt="这里写图片描述" title=""></p> 
+ <p>11： 接着解析器通过表达式：DEF_LIST -&gt; .DEF_LIST DEF进行reduce操作，同时将属性堆栈顶部的两个symbol列表链接起来： <br> <img src="img/1647416942225/2919050328155318911.jpg" alt="这里写图片描述" title=""></p> 
+ <p>12: 接下来读入关键字struct 以及变量名tag, tag对应的标签是NAME，于是通过TAG-&gt;NAME进行reduce操作，同时解析器到哈希表中查找是否有当前tag对应的结构体对象，由于在开始第一步时，我们已经把tag对应的结构体对象加入到哈希表中，因此此时将不再构建新的StructDefine对象。然后再次通过表达式STRUCT_SPECIFIER -&gt; .STRUCT TAG 将非终结符STRUCT_SPECIFIER压入属性堆栈。</p> 
+ <p>13：解析器通过表达式：TYPE_SPECIFIER -&gt; .STRUCT_SPECIFIER进行reduce操作，同时生成一个Specifier对象，该对象的类型是STRUCT,同时把第一步生成的StructDefine对象设置到Specifier的vStruct对象中: <br> <img src="img/1647416942936/8186214891156284150.jpg" alt="这里写图片描述" title=""> <br> 然后接着根据两个表达式 TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER，SPECIFIERS -&gt; .TYPE_OR_CLASS 进行reduce,然后将SPECIFIERS非终结符压入解析堆栈。</p> 
+ <p>14： 读入*, 返回对应的标签STAR, 读入变量名d,返回标签NAME, 根据NEW_NAME -&gt; .NAME进行reduce,同时为变量d构造一个Symbol对象： <br> <img src="img/1647416943219/-5987709029740433350.jpg" alt="这里写图片描述" title=""> <br> 然后根据表达式VAR_DECL -&gt; .NEW_NAME将非终结符VAR_DECL压入解析堆栈</p> 
+ <p>15： 此时解析堆栈上的头两个元素构成了表达式VAR_DECL -&gt; .STAR VAR_DECL的右边部分，于是进行对应的reduce操作，同时为属性堆栈顶部的Symbol对象生成一个Decalartor对象： <br> <img src="img/1647416943466/4974006376082163127.jpg" alt="这里写图片描述" title=""> <br> 接着按照流程根据表达式DECL -&gt; .VAR_DECL，和DECL_LIST -&gt; .DECL进行reduce，这样非终结符DECL_LIST便会压入属性堆栈。</p> 
+ <p>16：读入d后面的分号(SEMI),此时解析堆栈上的符号构成表达式：DEF -&gt; .SPECIFIERS DECL_LIST SEMI 右边部分，因此可以进行reduce操作，同时将Specifier:{basicType:STURCT}添加到顶部Symbol对象的类型列表中： <br> <img src="img/1647416943838/-7122889652398793970.jpg" alt="这里写图片描述" title=""></p> 
+ <p>17: 接下来通过表达式DEF_LIST -&gt; .DEF_LIST DEF 做reduce操作，同时将顶部的Symbol与下面的Symbol链接成链表： <br> <img src="img/1647416943961/7776347332517064600.jpg" alt="这里写图片描述" title=""></p> 
+ <p>18：接着读入右括号},得到对应标签RC, 同时可以通过表达式STRUCT_SPECIFIER -&gt; .STRUCT OPT_TAG LC DEF_LIST RC 进行reduce操作，此时可以把上一步形成的Symbol链表设置到StructDefine对象的fields域： <br> <img src="img/1647416944079/7388935873692852143.jpg" alt="这里写图片描述" title=""></p> 
+ <p>19: 根据表达式TYPE_SPECIFIER -&gt; .STRUCT_SPECIFIER进行reduce,此时又可以在属性堆栈顶部构建一个Specifer对象，它的类型是STRUCT, vStruct指针指向堆栈上的StructDefine对象： <br> <img src="img/1647416944674/-7809395333370099112.jpg" alt="这里写图片描述" title=""> <br> 然后再通过TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER，SPECIFIERS -&gt; .TYPE_OR_CLASS，OPT_SPECIFIERS -&gt; .SPECIFIERS，三个表达式把OPT_ SPECIFIERS压入解析堆栈。</p> 
+ <p>20： 读入变量名name, 得到其对应的NAME 标签，通过NEW_NAME -&gt; .NAME进行reduce,同时为name生成一个Symbol对象： <br> <img src="img/1647416945419/-5326797734055326541.jpg" alt="这里写图片描述" title=""> <br> 接着根据三个表达式：VAR_DECL -&gt; .NEW_NAME，EXT_DECL -&gt; .VAR_DECL， <br> EXT_DECL_LIST -&gt; .EXT_DECL进行reduce, 于是EXT_DECL_LIST便可以压入解析堆栈： <br> 21： 读入最后的分号SEMI,根据表达式EXT_DEF -&gt; .OPT_SPECIFIERS EXT_DECL_LIST SEMI 进行reduce, 此时把顶部的Symbol和下面的Specifier对象连接起来，于是整个结构体的符号表类类型系统的建立就完美结束了： <br> <img src="img/1647416946069/8748002952923087754.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

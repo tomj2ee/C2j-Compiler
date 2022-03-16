@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 编译器动手实践之：实现C语言函数定义的语法解析1</title>
+ <body> 编译器动手实践之：实现C语言函数定义的语法解析1</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>本文技术细节较为复杂，请参看视频得到更详细的演示和讲解： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>C语言是一种面向过程的语言，面向过程是指，将实现一个逻辑功能的代码集中到一起，每次需要使用的时候，再调用这些代码集合，这种代码集合就是函数。写C语言其实就是写一个个函数，因此对函数实现的语法解析是C语言编译器语法解析中，最复杂的，我们以前解析的各种结构体，枚举类型，变量定义等，都会间套到函数实现中，于此函数实现的解析要能够对所有C语言的数据类型进行处理，因此函数定义的解析是最为复杂的。</p> 
+ <p>对复杂问题的处理，最有效的办法是将他切块分解，把复杂系统分解成足够小，足够简单的模块，吃透每一个简单的模块，那么原来难以掌握的复杂系统就可以掌握了，我们这次也采用这种分而治之的办法，一点一滴的实现完全的函数定义解析。</p> 
+ <p>这次，我们先看看，类似如下的函数定义，如何完成语法解析：</p> 
+ <pre class="prettyprint"><code class="language-C hljs cs"><span class="hljs-keyword">void</span> f() {
+<span class="hljs-keyword">int</span> a;
+<span class="hljs-keyword">int</span> b;
+a = <span class="hljs-number">1</span>;
+b = <span class="hljs-number">2</span>;
+<span class="hljs-keyword">int</span> c;
+c = a &gt; b ? a : b;
+
+<span class="hljs-keyword">return</span> c;
+}</code></pre> 
+ <p>我们看看，对应上面函数定义的相关语法：</p> 
+ <pre class="prettyprint"><code class="language-C hljs lasso">EXT_DEF <span class="hljs-subst">-&gt; </span>OPT_SPECIFIERS FUNCT_DECL COMPOUND_STMT
+COMPOUND_STMT<span class="hljs-subst">-&gt; </span>LC LOCAL_DEFS STMT_LIST RC
+LOCAL_DEFS <span class="hljs-subst">-&gt; </span>DEF_LIST
+EXPR <span class="hljs-subst">-&gt; </span>NO_COMMA_EXPR
+NO_COMMA_EXPR <span class="hljs-subst">-&gt; </span>NO_COMMA_EXPR EQUAL NO_COMMA_EXPR
+NO_COMMA_EXPR <span class="hljs-subst">-&gt; </span>NO_COMMA_EXPR QUEST  NO_COMMA_EXPR COLON NO_COMMA_EXPR
+NO_COMMA_EXPR <span class="hljs-subst">-&gt; </span>BINARY
+BINARY <span class="hljs-subst">-&gt; </span>UNARY
+UNARY <span class="hljs-subst">-&gt; </span>NUMBER
+UNARY <span class="hljs-subst">-&gt; </span>NAME
+UNARY <span class="hljs-subst">-&gt; </span><span class="hljs-built_in">STRING</span>
+STMT_LIST <span class="hljs-subst">-&gt; </span>STMT_LIST STATEMENT
+STMT_LIST <span class="hljs-subst">-&gt;  </span>STATEMENT
+STATEMENT <span class="hljs-subst">-&gt; </span>EXPR SEMI
+STATEMENT <span class="hljs-subst">-&gt; </span><span class="hljs-keyword">RETURN</span> EXPR SEMI
+BINARY <span class="hljs-subst">-&gt; </span>BINARY RELOP BINARY
+BINARY <span class="hljs-subst">-&gt; </span>BINARY EQUOP BINARY
+BINARY <span class="hljs-subst">-&gt; </span>BINARY START BINARY
+STATEMENT <span class="hljs-subst">-&gt; </span>LOCAL_DEFS</code></pre> 
+ <p>大家可以看到，语法表达式相当多，但解析过程其实没有太复杂。我们先看个大概，COMPOUND_STMT对应的是函数实现中{..} 大括号包起来的那部分。UNARY对应变量名，数字，或字符串常量，在上面的例子中，变量a, b, 数字2, 3等都属于UNARY, BINARY 是UNARY 的组合， 像 a = 1, b = 2 之类的都属于BINARY. BINARY 组合起来就是NO_COMMA_EXPR， 例如语句c = a &gt; b ? a : b;就属于NO_COMMA_EXPR，它是由多个BINARY组合起来的， 例如 a &gt; b 就是一个BINARY.</p> 
+ <p>EXPR 其实是 NO_COMMA_EXPR 的组合，为了简单起见，在这里先把他两等价，STATEMENT 是多个EXPR 的组合， STMT_LIST 又是多个STATEMENT的组合。</p> 
+ <p>LOCAL_DEFS 对应于变量定义，像 int a, int b 这种语句就是，只不过这些变量定义是在函数体内，属于局部变量。</p> 
+ <p>一旦函数实现的解析全部完成后，我们接下来就要进入类型检测和代码生成了，后续我可能会先用java做一个C语言的解释器，然后再实现代码生成。下面我们看看解析器是如何解析上面的函数实现的。</p> 
+ <h4 id="解析器的解析流程">解析器的解析流程</h4> 
+ <p>1： 读入void , 得到其对应的标签TYPE, 然后通过一系列表达式变换： <br> TYPE_SPECIFIER -&gt; .TYPE <br> TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER <br> SPECIFIERS -&gt; .TYPE_OR_CLASS <br> OPT_SPECIFIERS -&gt; .SPECIFIERS <br> 得到非终结符OPT_SPECIFIERS ， 这样我们就得到起首表达式 <br> EXT_DEF -&gt; OPT_SPECIFIERS FUNCT_DECL COMPOUND_STMT <br> 右边的第一个非终结符了。</p> 
+ <p>2：接着读入函数名f, 得到标签NAME, 然后读入左括号，得到标签LP, 读入右括号，得到标签RP, 然后我们可以通过表达式FUNCT_DECL -&gt; .NEW_NAME LP RP进行reduce操作，这样我们又得到了起首表达式右边部分的第二个非终结符。</p> 
+ <p>3： 读入左大括号，得到标签LR, 然后读入关键字int, 得到标签TYPE, 对于TYPE，解析器触发的reduce流程跟上面是一样的，通过表达式： <br> TYPE_SPECIFIER -&gt; .TYPE <br> TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER <br> SPECIFIERS -&gt; .TYPE_OR_CLASS <br> 进行一系列回归后，得到非终结符SPECIFIERS</p> 
+ <p>4: 读入变量名a, 得到标签NAME,通过表达式： <br> NEW_NAME -&gt; .NAME <br> VAR_DECL -&gt; .NEW_NAME <br> DECL -&gt; .VAR_DECL <br> DECL_LIST -&gt; .DECL <br> 进行递归，然后再读入分号，获得标签SEMI, 这样的话，解析堆栈上就满足: <br> DEF -&gt; .SPECIFIERS DECL_LIST SEMI <br> 于是reduce后得到DEF, 再通过表达式DEF_LIST -&gt; DEF, LOCAL_DEFS -&gt; .DEF_LIST 得到非终结符LOCAL_DEFS，这样起非终结符COMPOUND_STMT的右边第二个非终结符就产生了。</p> 
+ <p>5： 接着读入 int b ;, 对该语句的解析与步骤4完全一样，于是可以得到非终结符LOCAL_DEFS，然后再通过表达式 <br> STATEMENT -&gt; .LOCAL_DEFS <br> STMT_LIST -&gt; .STATEMENT <br> 递归，由此我们得到非终结符STMT_LIST，这个非终结符是COMPOUND_STMT表达式右边的第3个符号。</p> 
+ <p>6：接着读入变量名a, 返回标签NAME, 根据表达式： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 得到非终结符NO_COMMA_EXPR，</p> 
+ <p>7： 读入符号=，返回标签EQUAL, 读入等号后面的数值1，得到标签NUMBER,然后通过表达式： <br> UNARY -&gt; .NUMBER <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 再次获得非终结符NO_COMMA_EXPR，这样我们就得到了表达式 <br> NO_COMMA_EXPR -&gt; .NO_COMMA_EXPR EQUAL NO_COMMA_EXPR <br> 的右边部分，然后再通过表达式 <br> EXPR -&gt; .NO_COMMA_EXPR <br> 进行reduce, 然后读入分号SEMI, 于是表达式 <br> STATEMENT -&gt; .EXPR SEMI <br> 的右边部分得到满足。最后通过表达式 <br> STMT_LIST -&gt;STATEMENT 进行reduce, 由此语句a = 1 ; 其实对应于非终结符STMT_LIST</p> 
+ <p>8： 读入语句 b = 2, 解析过程跟上面一模一样.</p> 
+ <p>9: 读取语句 int c; 它的解析跟步骤4一模一样。</p> 
+ <p>10：接下来要解析的语句就是： <br> c = a &gt; b ? a : b; <br> 先把变量名c,读入，得到标签NAME,然后根据表达式： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 这样变量c就对应于非终结符NO_COMMA_EXPR，接着读入等号，返回标签EQUAL, 然后读入变量名c, 根据表达式： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> 递归，也就相当于将a对应于BINARY, 接着读入&gt;,得到标签RELOP, 接着读入变量b,推导方式跟a一样，将b对应于标签BINARY. 接着通过表达式： <br> BINARY -&gt; .BINARY RELOP BINARY <br> 进行递归，也就是 a &gt; b 这个语句其实对应非终结符BINARY. <br> 继续根据表达式： <br> NO_COMMA_EXPR -&gt; .BINARY <br> 将BINARY转换成NO_COMMA_EXPR， 于是表达式 <br> NO_COMMA_EXPR -&gt; .NO_COMMA_EXPR EQUAL NO_COMMA_EXPR <br> 右边就成立了，接着读入符号？返回标签QUEST, 读入问号后面的变量a,通过表达式： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 进行递归，这样变量a等价于非终结符NO_COMMA_EXPR。 <br> 读入冒号，得到标签COLON, 读入冒号后面的变量b ，b的解读推导方式与a一样，通过同样的变换后得到标签NO_COMMA_EXPR, 于是表达式： <br> NO_COMMA_EXPR -&gt; .NO_COMMA_EXPR QUEST NO_COMMA_EXPR COLON NO_COMMA_EXPR <br> 右边成立，整语句c = a &gt; b ? a : b; 可以对应于非终结符NO_COMMA_EXPR。</p> 
+ <p>11： 通过表达式： <br> EXPR -&gt; .NO_COMMA_EXPR <br> 递归，然后读入分号，EXPR SEMI 结合就满足表达式 <br> STATEMENT -&gt; .EXPR SEMI <br> 有了STATEMENT，再通过表达式 <br> STMT_LIST -&gt; .STMT_LIST STATEMENT <br> 递归一次，这样当前解读到的所有语句： <br> int a; <br> int b; <br> a = 1; <br> b = 2; <br> int c; <br> c = a &gt; b ? a : b; <br> 都属于非终结符STMT_LIST</p> 
+ <p>12： 读入关键字return, 返回标签RETURN, 读入变量c,通过表达式： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> EXPR -&gt; .NO_COMMA_EXP <br> 将变量c解读为EXPR， 然后再读入分号，于是 RETURN EXPR SEMI构成表达式STATEMENT -&gt; .RETURN EXPR SEMI <br> 的右边，因此得到非终结符STATEMENT，再通过表达式： <br> STMT_LIST -&gt; .STMT_LIST STATEMENT <br> 递归一次，于是大括号里面的所有语句全部被对应到STMT_LIST。</p> 
+ <p>13：读入右括号}, 也就是LC, 这样表达式： <br> COMPOUND_STMT -&gt; .LC LOCAL_DEFS STMT_LIST RC <br> 就满足了，我们也就得到起首表达式右边最后一个非终结符。</p> 
+ <p>14：此时我们可以根据起首表达式递归： <br> EXT_DEF -&gt; .OPT_SPECIFIERS FUNCT_DECL COMPOUND_STMT <br> 得到EXT_DEF 后，就可以自动回归到全局非终结符。</p> 
+ <p>由此整个函数定义就可以被我们的语法解析器接收了。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

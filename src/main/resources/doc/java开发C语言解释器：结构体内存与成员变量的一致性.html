@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言解释器：结构体内存与成员变量的一致性</title>
+ <body> java开发C语言解释器：结构体内存与成员变量的一致性</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>如果你对机器学习感兴趣，请参看一下链接： <br> <a href="http://www.imooc.com/learn/813">机器学习：神经网络导论</a></p> 
+ <p>由于设计上的原因，我们的解释器在解读结构体指针时，存有两套信息存储系统，例如对于结构体定义和结构体指针变量的相关代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">int</span>  p;
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">int</span> arr[<span class="hljs-number">3</span>];
+
+    }tag;
+
+<span class="hljs-keyword">struct</span> TAG *pTag;
+<span class="hljs-keyword">int</span> sz = <span class="hljs-keyword">sizeof</span>(tag);
+pTag = <span class="hljs-built_in">malloc</span>(sz);</code></pre> 
+ <p>我们根据结构体TAG 定义了一个结构体指针pTag, 并且通过malloc为该指针分配了动态内存,在解释器内部，由于设计上的原因，一个结构体指针变量应对着两套内存系统，一个是解释器会为结构体指针遍历中的每一个成员变量创建一个Symbol对象，这些对象存储在符号表中，二是解释器根据malloc调用，为该指针分配了动态内存，具体情况如下图所示： <br> <img src="img/1647416415804/3978921602117563530.jpg" alt="这里写图片描述" title=""></p> 
+ <p>这样带来一个问题是，我们必须保证两套内存数据的值必须是一致的，例如成员变量p的值改变了后，那么指针指向的动态内存，头四个字节的内容也需要相应改变。上一节，我们实现的就是这个功能。</p> 
+ <p>本节，我们要实现的是，如果代码修改了动态内存头四个字节的数据，那么结构体的成员变量p的值也需要跟着改变。上一节做法的思路是，解释器监视结构体成员变量，每当结构体成员的值发生改变，那么解释器就把所有成员变量的值复制到内存中。这次，我们反其道而行之，在解释器读取结构体成本变量的数值之前，先把内存中的信息拷贝到每个结构体成员中。</p> 
+ <p>完成本节代码后，解释器将能正确的解释执行如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">void</span> main() {
+    <span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">char</span> b[<span class="hljs-number">3</span>];
+        <span class="hljs-keyword">int</span> p;
+    }tag;
+
+    <span class="hljs-keyword">struct</span> TAG* pTag;
+    <span class="hljs-keyword">int</span> sz ;
+    sz = <span class="hljs-keyword">sizeof</span>(tag);
+    pTag = <span class="hljs-built_in">malloc</span>(sz);
+
+    pTag[<span class="hljs-number">0</span>] = <span class="hljs-number">3</span>;    
+    pTag[<span class="hljs-number">1</span>] = <span class="hljs-number">4</span>;
+    pTag[<span class="hljs-number">2</span>] = <span class="hljs-number">5</span>;
+    pTag[<span class="hljs-number">3</span>] = <span class="hljs-number">6</span>;
+    <span class="hljs-built_in">printf</span>(<span class="hljs-string">"value of c is %d, b[0] is %d, b[1] is %d, b[2] is %d "</span>, pTag-&gt;c, pTag-&gt;b[<span class="hljs-number">0</span>], pTag-&gt;b[<span class="hljs-number">1</span>], pTag-&gt;b[<span class="hljs-number">2</span>]);
+}</code></pre> 
+ <p>当结构体成员变量被赋值或读取的语句是 pTag-&gt;c, 此类语句对应的语法表达式为：Unary -&gt; Unary StructOP Name</p> 
+ <p>负责解释执行该类语句的解释器代码处于UnaryNodeExecutor.java中，相关代码逻辑如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IExecutorReceiver</span>{<!-- --></span>
+    <span class="hljs-keyword">private</span> Symbol structObjSymbol = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> Symbol monitorSymbol = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION); 
+        String text ;
+        Symbol symbol;
+        Object value;
+        ICodeNode child;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+         <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_StructOP_Name_TO_Unary:
+            child = root.getChildren().get(<span class="hljs-number">0</span>);
+            String fieldName = (String)root.getAttribute(ICodeKey.TEXT);
+            symbol = (Symbol)child.getAttribute(ICodeKey.SYMBOL);
+
+            <span class="hljs-keyword">if</span> (isSymbolStructPointer(symbol)) {
+                copyBetweenStructAndMem(symbol, <span class="hljs-keyword">false</span>);
+            }
+
+            Symbol args = symbol.getArgList();
+            <span class="hljs-keyword">while</span> (args != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">if</span> (args.getName().equals(fieldName)) {
+                    <span class="hljs-keyword">break</span>;
+                }
+
+                args = args.getNextSymbol();
+            }
+
+            <span class="hljs-keyword">if</span> (args == <span class="hljs-keyword">null</span>) {
+                System.err.println(<span class="hljs-string">"access a filed not in struct object!"</span>);
+                System.exit(<span class="hljs-number">1</span>);
+            }
+
+            root.setAttribute(ICodeKey.SYMBOL, args);
+            root.setAttribute(ICodeKey.VALUE, args.getValue());
+
+            <span class="hljs-keyword">if</span> (isSymbolStructPointer(symbol) == <span class="hljs-keyword">true</span>) {
+                checkValidPointer(symbol);
+                structObjSymbol = symbol;
+                monitorSymbol = args;
+
+                ExecutorBrocasterImpl.getInstance().registerReceiverForAfterExe(<span class="hljs-keyword">this</span>);
+            } <span class="hljs-keyword">else</span> {
+                structObjSymbol = <span class="hljs-keyword">null</span>;
+            }
+
+            <span class="hljs-keyword">break</span>;
+        ....
+        }
+....
+}</code></pre> 
+ <p>在上面代码中，我添加了如下语句：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-keyword">if</span> (isSymbolStructPointer(symbol)) {
+                copyBetweenStructAndMem(symbol, <span class="hljs-literal">false</span>);
+            }</code></pre> 
+ <p>这几行代码的作用是，判断当前Symbol所对应的变量是否是结构体指针，如果是的话，在访问该结构体变量的成员之前，先把数据从动态内存，也就是上图中Mem所代表的那部分，拷贝到各个结构体成员变量中。我们再看看copyBetweenStructAndMem 接口的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">copyBetweenStructAndMem</span>(Symbol symbol, <span class="hljs-keyword">boolean</span> isFromStructToMem) {
+        Integer addr = (Integer)symbol.getValue();
+        MemoryHeap memHeap = MemoryHeap.getInstance();
+        Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; entry = memHeap.getMem(addr);
+        <span class="hljs-keyword">byte</span>[] mems = entry.getValue();
+        Stack&lt;Symbol&gt; stack = reverseStructSymbolList(symbol);
+        <span class="hljs-keyword">int</span> offset = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">while</span> (stack.empty() != <span class="hljs-keyword">true</span>) {
+            Symbol sym = stack.pop(); 
+
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">if</span> (isFromStructToMem == <span class="hljs-keyword">true</span>) {
+                    offset += writeStructVariablesToMem(sym, mems, offset); 
+                } <span class="hljs-keyword">else</span> {
+                    offset += writeMemToStructVariables(sym, mems, offset);
+                }
+
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                System.err.println(<span class="hljs-string">"error when copyin struct variables to memory"</span>);
+                e.printStackTrace();
+            }
+        }
+    }</code></pre> 
+ <p>它输入两个参数，第一个是结构体指针变量对应的Symbol对象，第二个参数是一个boolean 类型变量，如果他的值是true, 那么该函数调用writeStructVariablesToMem 将结构体成员变量的值拷贝到内存，如果是false, 那么调用writeMemToStructVariables 把内存数据拷贝到结构体成员变量中。</p> 
+ <p>writeStructVariablesToMem 的逻辑我们上节讲过了，本节我们看看writeMemToStructVariables的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">writeMemToStructVariables</span>(Symbol symbol, <span class="hljs-keyword">byte</span>[] mem, <span class="hljs-keyword">int</span> offset) <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-keyword">if</span> (symbol.getArgList() != <span class="hljs-keyword">null</span>) {
+            <span class="hljs-comment">//struct variable, copy mem to struct recursively</span>
+            <span class="hljs-keyword">return</span> writeMemToStructVariables(symbol, mem, offset);
+        }
+
+        <span class="hljs-keyword">int</span> sz = symbol.getByteSize();
+        <span class="hljs-keyword">int</span> val = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">if</span> (symbol.getDeclarator(Declarator.ARRAY) == <span class="hljs-keyword">null</span>) {
+            val = fromByteArrayToInteger(mem, offset, sz);
+            symbol.setValue(val);
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">return</span> copyMemToArrayVariable(symbol, mem, offset);
+        }
+
+        <span class="hljs-keyword">return</span> sz;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">fromByteArrayToInteger</span>(<span class="hljs-keyword">byte</span>[] mem, <span class="hljs-keyword">int</span> offset, <span class="hljs-keyword">int</span> sz) {
+        <span class="hljs-keyword">int</span> val = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">switch</span> (sz) {
+        <span class="hljs-keyword">case</span> <span class="hljs-number">1</span>:
+            val = mem[offset];
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">case</span> <span class="hljs-number">2</span>:
+            val = (mem[offset + <span class="hljs-number">1</span>] &lt;&lt; <span class="hljs-number">8</span> | mem[offset]);
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">case</span> <span class="hljs-number">4</span>:
+            val = (mem[offset+<span class="hljs-number">3</span>] &lt;&lt; <span class="hljs-number">24</span> | mem[offset+<span class="hljs-number">2</span>] &lt;&lt; <span class="hljs-number">16</span> | mem[offset + <span class="hljs-number">1</span>] &lt;&lt; <span class="hljs-number">8</span> | 
+                    mem[offset]);
+            <span class="hljs-keyword">break</span>;
+        }
+
+        <span class="hljs-keyword">return</span> val;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">copyMemToArrayVariable</span>(Symbol symbol, <span class="hljs-keyword">byte</span>[] mem, <span class="hljs-keyword">int</span> offset) {
+        <span class="hljs-keyword">int</span> sz = symbol.getByteSize();
+        Declarator declarator = symbol.getDeclarator(Declarator.ARRAY);
+        <span class="hljs-keyword">if</span> (declarator == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;
+        }
+
+        <span class="hljs-keyword">int</span> size = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">int</span> elemCount = declarator.getElementNum();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; elemCount; i++) {
+            <span class="hljs-keyword">int</span> val = fromByteArrayToInteger(mem, offset + size, sz);
+            size += sz;
+            <span class="hljs-keyword">try</span> {
+                declarator.addElement(i, val);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+            }
+        }
+
+        <span class="hljs-keyword">return</span> size;
+    }</code></pre> 
+ <p>writeMemToStructVariables 实现的基本逻辑是，根据结构体成员变量在内存中的相对位置，以及该变量对应的字节大小，从内存中读取相关数据，把读取的信息写入到该变量所对应的Symbol对象中。例如根据给定的代码实例，结构体的成员变量c,位于结构体偏移0处，它是char类型，因此该变量对应的字节大小为1，于是，我们从动态内存其实地址为0开始，读取一个字节的数据内容，把读取的内容设置到变量c在符号表中的Symbol对象。</p> 
+ <p>fromByteArrayToInteger的作用是把多个字节的数据合成一个基本数据类型，例如int类型的变量是4个字节，那么该函数先从内存数组里读出4个字节的数据，然后把这4个字节合并成一个int整形数。</p> 
+ <p>copyMemToArrayVariable的作用跟我们上节讲过的函数copyArrayVariableToMem， 逻辑是一样的。</p> 
+ <p>完成上面代码后，当我们通过指针修改了结构体指针指向的内存后，修改的结果就能直接反应到结构体的成员变量上，我们给定的示例代码，解释器解释执行后结果如下： <br> value of c is 3, b[0] is 4, b[1] is 5, b[2] is 6</p> 
+ <p>由此可见，我们解释器对源代码的解释执行结果是正确的。请参看视频以便获得更详细的讲解和更详实的代码调试演示过程。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416415849/1495363672038742153.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java实现C语言解释器：无参数传递的函数调用的解释和执行</title>
+ <body> java实现C语言解释器：无参数传递的函数调用的解释和执行</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>具体的代码讲解和调试演示过程，请参看视频： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>本节，我们看看，如何实现C语言中的函数调用，举个具体例子，在完成本节的代码后，我们的解释器功能进一步增强，使得它能解释执行下面的C语言代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">void</span> f() {
+    <span class="hljs-keyword">int</span> a;
+    a = <span class="hljs-number">1</span>;
+}
+
+<span class="hljs-keyword">void</span> main() {
+    f();
+}</code></pre> 
+ <p>我们先看看函数定义的语法表达式：</p> 
+ <pre class="prettyprint"><code class=" hljs haskell"><span class="hljs-type">EXT_DEF</span> -&gt; <span class="hljs-type">OPT_SPECIFIERS</span> <span class="hljs-type">FUNCT_DECL</span> <span class="hljs-type">COMPOUND_STMT</span>
+<span class="hljs-type">FUNCT_DECL</span> -&gt; <span class="hljs-type">UNARY</span> <span class="hljs-type">LP</span> <span class="hljs-type">RP</span></code></pre> 
+ <p>对应于函数f的定义 ，其中 OPT_SPECIFIERS 对应的是关键字void, FUNCT_DECL对应的是 f(), 最后COMPOUND_STMT对应的是： <br> { <br> int a; <br> a = 1; <br> }</p> 
+ <p>根据表达式，解释器会构造如下执行树： <br> <img src="img/1647416928904/6985313364266875671.jpg" alt="这里写图片描述" title=""></p> 
+ <p>同理，对于main函数，我们也有同样的执行树： <br> <img src="img/1647416929122/1484329502452467829.jpg" alt="这里写图片描述" title=""></p> 
+ <p>在主函数main 中，实现了对函数f的调用，函数调用对应的语法如下： <br> UNARY -&gt; UNARY LP RP <br> NUARY -&gt; NAME</p> 
+ <p>其中NAME 对应的是被掉函数名 f, LP RP 对应左右括号。</p> 
+ <p>我们看看构造执行树的代码对此进行的相应改动，CodeTreeBuilder.java:</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">public class CodeTreeBuilder {
+
+private String functionName<span class="hljs-comment">;</span>
+    private HashMap&lt;String, ICodeNode&gt; funcMap = new HashMap&lt;String , ICodeNode&gt;()<span class="hljs-comment">;</span>
+
+  public ICodeNode buildCodeTree(int production, String text) {
+        ICodeNode node = null<span class="hljs-comment">;</span>
+        Symbol symbol = null<span class="hljs-comment">;</span>
+
+        switch (production) {
+        ...
+
+        case CGrammarInitializer<span class="hljs-preprocessor">.NewName</span>_LP_RP_TO_FunctDecl:
+        case CGrammarInitializer<span class="hljs-preprocessor">.NewName</span>_LP_VarList_RP_TO_FunctDecl:
+            node = ICodeFactory<span class="hljs-preprocessor">.createICodeNode</span>(CTokenType<span class="hljs-preprocessor">.FUNCT</span>_DECL)<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            child =  node<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-comment">;</span>
+            functionName = (String)child<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>)<span class="hljs-comment">;</span>
+            symbol = assignSymbolToNode(node, functionName)<span class="hljs-comment">;</span>
+
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+
+        case CGrammarInitializer<span class="hljs-preprocessor">.NewName</span>_TO_VarDecl:
+            //我们暂时不处理变量声明语句
+            codeNodeStack<span class="hljs-preprocessor">.pop</span>()<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+
+        case CGrammarInitializer<span class="hljs-preprocessor">.NAME</span>_TO_NewName:
+            node = ICodeFactory<span class="hljs-preprocessor">.createICodeNode</span>(CTokenType<span class="hljs-preprocessor">.NEW</span>_NAME)<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>, text)<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+
+        case CGrammarInitializer<span class="hljs-preprocessor">.OptSpecifiers</span>_FunctDecl_CompoundStmt_TO_ExtDef:
+            node = ICodeFactory<span class="hljs-preprocessor">.createICodeNode</span>(CTokenType<span class="hljs-preprocessor">.EXT</span>_DEF)<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            funcMap<span class="hljs-preprocessor">.put</span>(functionName, node)<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+    ....
+    }
+}</code></pre> 
+ <p>由于我们现在是基于函数调用来解释C语言代码的，因此，当我们将一个函数的执行树构造出来后，需要把在执行树的头节点加入一个哈希表，表的关键字用的就是函数名，当某个函数被调用时，解释器会从该表中，通过被调用函数的名字，找到该函数对应的执行树的头节点，然后再根据该执行树进行解释执行相应节点，这样，我们就能实现函数调用了。</p> 
+ <p>我们再看看函数的执行部分，我们根据执行树，增加了若干个Executor，对应于函数定义执行树的头节点，我们增加了ExtDefExecutor,代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> frontend.CGrammarInitializer;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExtDefExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION);
+        <span class="hljs-keyword">switch</span> (production) {
+        <span class="hljs-keyword">case</span> CGrammarInitializer.OptSpecifiers_FunctDecl_CompoundStmt_TO_ExtDef:
+            executeChild(root, <span class="hljs-number">0</span>);
+            ICodeNode child = root.getChildren().get(<span class="hljs-number">0</span>); 
+            String funcName = (String)child.getAttribute(ICodeKey.TEXT);
+            root.setAttribute(ICodeKey.TEXT, funcName);
+
+            executeChild(root, <span class="hljs-number">1</span>);
+            child = root.getChildren().get(<span class="hljs-number">1</span>);
+            Object returnVal = child.getAttribute(ICodeKey.VALUE);
+            <span class="hljs-keyword">if</span> (returnVal != <span class="hljs-keyword">null</span>) {
+                root.setAttribute(ICodeKey.VALUE, returnVal);
+            }
+
+
+            <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">return</span> root;
+    }
+
+}
+</code></pre> 
+ <p>它的逻辑简单，由于它先执行FUNCT_DECL节点，然后在执行函数体，也就是大括号包住的部分。</p> 
+ <p>我们再看看FUNCT_DECL节点对应的Executor:</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctDeclExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION);
+        <span class="hljs-keyword">switch</span> (production) {
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NewName_LP_RP_TO_FunctDecl:
+            root.reverseChildren();
+            copyChild(root, root.getChildren().get(<span class="hljs-number">0</span>));
+            <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">return</span> root;
+    }
+
+}
+</code></pre> 
+ <p>该节点执行时，只是单纯的拷贝子节点信息，后面我们实现由参数传递的函数调用时，该节点将发挥重要作用。</p> 
+ <p>由于函数调用对应的语法是： <br> UNARY -&gt; UNARY LP RP <br> 因此，UnaryExecutor也要做相应改动，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION); 
+        String text ;
+        Symbol symbol;
+        Object value;
+        ICodeNode child;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        ...
+          <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_LP_RP_TO_Unary:
+            <span class="hljs-comment">//先获得函数名</span>
+            String funcName = (String)root.getChildren().get(<span class="hljs-number">0</span>).getAttribute(ICodeKey.TEXT);
+            <span class="hljs-comment">//找到函数执行树头节点</span>
+            ICodeNode func = CodeTreeBuilder.getCodeTreeBuilder().getFunctionNodeByName(funcName);
+            <span class="hljs-keyword">if</span> (func != <span class="hljs-keyword">null</span>) {
+                Executor executor = ExecutorFactory.getExecutorFactory().getExecutor(func);
+                executor.Execute(func);
+            }
+            <span class="hljs-keyword">break</span>;
+        ...
+        }</code></pre> 
+ <p>它首先找到要调用的函数名，利用函数名在函数哈希表中找到对应的执行树的头节点，根据头结点构造函数的执行节点ExtDefExecutor，然后调用该Executor的execute接口，于是ExtDefExecutor便开始变量函数f的执行树，在对应节点执行相应操作，从而实现函数f被调用的效果。</p> 
+ <p>具体的代码讲解和调试演示请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416929414/5684378527938981013.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

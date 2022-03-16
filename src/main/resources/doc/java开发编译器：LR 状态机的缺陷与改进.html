@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发编译器：LR 状态机的缺陷与改进</title>
+ <body> java开发编译器：LR 状态机的缺陷与改进</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程：</p> 
+ <p><a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+ <p>前两节我们构造的状态机有些缺陷，当我们进入某个状态节点时，根据该节点的特性，我们需要产生一些动作，根据上两节的有限状态机图，当我们进入节点5，我们发现，符号”.”为位于表达式的最右边，在 . 后面不再有其他非终结符或终结符，进入这样的节点时，我们要根据表达式做一次reduce操作，例如在节点5中，表达式和点的情况如下：</p> 
+ <p>t -&gt; f .</p> 
+ <p>此时，我们要根据推导做一次reduce操作，把 f 弹出解析堆栈，把 t 压入解析堆栈，reduce 操作后，状态机的状态从节点5退回到节点0.</p> 
+ <p>同理，如果状态机进入节点3，由于 . 位于推导表达式的最右边，在 . 的后面没有了其他非终结符或终结符，于是要根据节点的推导表达式做reduce操作，根据节点3的表达式：</p> 
+ <p>f -&gt; NUM.</p> 
+ <p>我们需要把 NUM 弹出堆栈，同时将非终结符f压入堆栈，并从节点3 退回到节点0.</p> 
+ <p>问题在于不是每一个节点都有能清晰明确的指定我们分析过程该做什么动作，一个明显的例子是节点1，该节点含有两个表达式，一个表达式中，符号点处于最末尾：</p> 
+ <p>e -&gt; t .</p> 
+ <p>另一个表达式，符号 . 处于表达式的中间：</p> 
+ <p>t -&gt; t . * f</p> 
+ <p>那么像这种情况，我们该做reduce 还是 shift? 这种情况我们称之为 shift / reduce 矛盾。</p> 
+ <p>还有节点11，该节点含有两个表达式，并且符号 . 都在这两个表达式的最后面：</p> 
+ <p>e -&gt; e + t . <br> t -&gt; t * f .</p> 
+ <p>当处于该节点时，我们到底该依据哪一个表达式做reduce操作？这种情况我们称之为reduce矛盾。</p> 
+ <p>这一节，我们将研究处理这种矛盾的算法。</p> 
+ <p>SLR(1) 语法：</p> 
+ <p>有一个处理 shift / reduce 矛盾的简单方法。还记得LL(1)语法中我们研究过的 FOLLOW set 算法吧。FOLLOW set 指的是，对某个非终结符，根据语法推导表达式构建出的所有可以跟在该非终结符后面的终结符集合，我们称作该非终结符的FOLLOW set.</p> 
+ <p>对于节点4的两个表达式:</p> 
+ <p>e -&gt; t . <br> t -&gt; t . * f</p> 
+ <p>进入该节点后，到底应该根据第一个表达式做reduce,还是根据第二个表达式做shift操作呢。如果，当前输入字符如果属于 e 的 FOLLOW set, 那么我们就做reduce操作。 <br> 上节例子中，根据给定语法，每个非终结符的Follow set 如下：</p> 
+ <p>FOLLOW(s) = {EOI} <br> FOLLOW(e) = {EOI, },+} <br> FOLLOW(t) = {EOI, }, + , * } <br> FOLLOW(f) = {EOI, }, +, * }</p> 
+ <p>对于节点4，如果当前输入字符属于非终结符e的FOLLOW set, 那么就根据表达式：</p> 
+ <p>e -&gt; t. </p> 
+ <p>做reduce 操作，要不然根据另外一个表达式做shift操作。</p> 
+ <p>其他类似节点可根据相同的原则处理，如果语法构建的状态机，出现reduce / shift 矛盾的节点都可以根据上面的原则处理的话，那么这种语法，我们称之为 SLR(1) 语法，SLR 意思是 simple LR 。</p> 
+ <p>LR(1) 语法</p> 
+ <p>有些语法构建的状态机，某些节点的shift / reduce 矛盾可能无法根据上面给出的原则进行处理。当前输入的字符既可以出现在第一个推导表达式左边非终结符的FOLLOW set 中，同时又是第二个表达式 . 右边的终结符，例如上面的节点4，如果 * 属于 e 的 FOLLOW set, 那么shift /reduce 矛盾就难以解决了。</p> 
+ <p>事实上，我们不需要考虑当前输入字符是否属于非终结符的FOLLOW set, 只要考虑，当前输入字符，当我们做了reduce操作后，在状态机当前上下文环境下，是否能合法的跟在reduce后的非终结符的后面。</p> 
+ <p>这种能合法的跟在某个非终结符后面的符号集合，我们称之为look ahead set, 它是FOLLOW set 的子集。</p> 
+ <p>结合具体实例，我们看看 look ahead set 是怎样的。对于状态节点 11， 它是一个 shift / reduce 矛盾 节点。从节点0到节点11的路径有两条：</p> 
+ <p>0 -&gt; 2 -&gt; 9 -&gt; 11 <br> 0 -&gt; 4 -&gt; 8 -&gt; 9 -&gt; 11</p> 
+ <p>要收集 e 的 look ahead 集合，我们只要收集这两条路径上，跟在 e 后面的终结符就可以了。当我们做reduce操作后，相应的非终结符会被压入堆栈，一旦该非终结符被压入解析堆栈，能跟在该非终结符后面的终结符最好要对应于下即将要输入的字符。我们看节点0，如果解析过程中，产生一个生成 e 的reduce 回到节点0，例如： <br> (0, NUM) -&gt; 3 –(reduce by f -&gt; NUM.) -&gt; 0 <br> (0, f) -&gt; 5 – (reduce by t -&gt; f.) -&gt; 0 <br> (0, t) -&gt; 1 – (reduce by e -&gt; t.) -&gt; 0</p> 
+ <p>此时，在节点0以及当前输入 e 跳转到节点2。</p> 
+ <p>根据表达式：</p> 
+ <p>e -&gt; e . + t</p> 
+ <p>由于 . 后面跟着 +, 我们希望进入节点2 后，当前输入的字符就是 +, 或者根据另一个表达式：</p> 
+ <p>s -&gt; e .</p> 
+ <p>我们也可以期望，下一个输入字符是EOI, 这样我们的 <br> look ahead 集合就包含 EOI, +.</p> 
+ <p>也就是说，如果状态机根据路径： <br> 0 -&gt; 2 -&gt; 9 -&gt; 11 </p> 
+ <p>进入状态节点11， 并且进入节点11后，当前输入是EOI， + 的话，我们可以做reduce操作，退回到节点0.</p> 
+ <p>再看节点4中的表达式:</p> 
+ <p>f -&gt; ( . e )</p> 
+ <p>跟在e 后面的终结符是 ), 这表明如果进入到节点11，并且输入是字符 ), 时，我们可以做reduce 操作，同时根据路径：0 -&gt; 4 -&gt; 8 -&gt; 9 -&gt; 11 返回到节点4，并且e也会被压入解析堆栈，这样根据 (4, e) 可以进入节点8，然后根据(8, ) ) 可以进入节点 10.</p> 
+ <p>由此 e 的 look ahead 集合就包含 EOI, + , ), 在节点11，决定是否要做reduce ，只要看下一个输入的字符是否属于e的look ahead 集合就可以了。</p> 
+ <p>这样一来，每个节点中的每个表达式，都需要配备一个对应的 look ahead 集合，如果两个表达式相同，但他们的look ahead 集合不同，那么，我们就认为这两个表达式也是不同的。假定一个表达式结合它对应的look ahead 如下：</p> 
+ <p>s -&gt; α .x β， C <br> x -&gt; . r</p> 
+ <p>C 是 look ahead 集合，α, β, r 是0个或多个终结符或非终结符的组合， x 是非终结符，那么 x -&gt; . r 的look ahead 集合如下：</p> 
+ <p>FIRST(β C),就是 FIRST(β) 并上 C.</p> 
+ <p>创建带有look ahead 集合表达式的过程主要在closure阶段进行。举个例子，对于节点0中的表达式：</p> 
+ <p>s -&gt; . e </p> 
+ <p>我们先给他初始化一个look ahead 集合为 {EOI}.于是有：</p> 
+ <p>s -&gt; α .x β， C <br> s -&gt; .e , {EOI} <br> 根据： <br> x -&gt; . r FIRST(β C)</p> 
+ <p>我们有： <br> e -&gt; .e + t FIRST(β C) <br> e -&gt; . t FIRST(β C) <br> 由于β 是空，因此 FIRST(β C) = C = {EOI},于是就有：</p> 
+ <p>e-&gt; .e + t {EOI} <br> e-&gt; .t {EOI}</p> 
+ <p>得到上面的表达式后，我们继续往下推： <br> s -&gt; α .x β， C <br> e-&gt; .e + t {EOI}</p> 
+ <p>根据 ： <br> x -&gt; .r FIRST(β C) <br> e -&gt; .e + t <br> 由于β = + t, 于是 <br> FIRST(β) = + <br> FIRST(β C) = {+, EOI}</p> 
+ <p>因此有新的表达式： <br> e -&gt; .e + t {+, EOI} <br> 这个过程反复进行，直到没有新的表达式可以生成为止。</p> 
+ <p>我们根据节点0，将这个算法的具体实现走一遍，为了实现上面的算法，我们需要两个数据结构，一个是堆栈productionStack, 一个是集合 closureSet.</p> 
+ <p>首先，我们初始化节点0的表达式，并给表达式赋予一个初始的look ahead 集合 {EOI}:</p> 
+ <p>[s -&gt; . e {EOI}]</p> 
+ <p>将上面的表达式压入堆栈以及集合： <br> productionStack:</p> 
+ <p>[s -&gt; . e {EOI}]</p> 
+ <p>closureSet:</p> 
+ <p>[s -&gt; . e {EOI}]</p> 
+ <p>如果堆栈不为空，将堆栈顶部的表达式出栈，并利用上面讲到的算法构造新的表达式，此时栈顶的表达式为：</p> 
+ <p>[s -&gt; . e {EOI}]</p> 
+ <p>根据： <br> s -&gt; α .x β， C <br> s-&gt; .e , {EOI} <br> x -&gt; . r FIRST(β, C)</p> 
+ <p>我们可以产生两个新的表达式： <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}]</p> 
+ <p>分别将他们压入堆栈和加入集合： <br> productionStack: <br> [e -&gt; . t {EOI}] <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}]</p> 
+ <p>把堆栈顶部的表达式出栈： <br> [e -&gt; . t {EOI}]</p> 
+ <p>构造新的表达式： <br> [t -&gt; .t * f {EOI}] <br> [t -&gt; .f {EOI}]</p> 
+ <p>将他们加入堆栈和集合： <br> productionStack: <br> [t -&gt; .f {EOI}] <br> [t -&gt; .t * f {EOI}] <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}] <br> [t -&gt; .t * f {EOI}] <br> [t -&gt; .f {EOI}]</p> 
+ <p>将栈顶表达式出栈： <br> [t -&gt; .f {EOI}] <br> 同理构造新的表达式： <br> [f -&gt;. ( e ) {EOI}] <br> [f -&gt; . NUM {EOI}]</p> 
+ <p>将新生成的表达式压入堆栈和加入集合: <br> productionStack: <br> [f -&gt; . NUM {EOI}] <br> [f -&gt;. ( e ) {EOR}] <br> [t -&gt; .t * f {EOI}] <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}] <br> [t -&gt; .t * f {EOI}] <br> [t -&gt; .f {EOI}] <br> [f -&gt;. ( e ) {EOR}] <br> [f -&gt; . NUM {EOI}]</p> 
+ <p>将堆栈顶部的表达式出栈： <br> [f -&gt; . NUM {EOI}] <br> 由于. 后面不是非终结符，所以对该表达式不做处理。继续弹出栈顶表达式：</p> 
+ <p>[f -&gt;. ( e ) {EOI}]</p> 
+ <p>同理，由于.后面不是非终结符，所以对该表达式不做处理。继续弹出栈顶表达式：</p> 
+ <p>[t -&gt; .t * f {EOI}]</p> 
+ <p>此时，β 对应的部分为 * f, 所以FIRST(β C) = FIRST(* f) 并上 {EOI}, 也就是{* EOI}，于是我们生成新的表达式：</p> 
+ <p>[t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}]</p> 
+ <p>将上面表达式压入堆栈和加入集合：</p> 
+ <p>productionStack: <br> [t -&gt; . f {* EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}] <br> [t -&gt; .t * f {EOI}] <br> [t -&gt; .f {EOI}] <br> [f -&gt;. ( e ) {EOR}] <br> [f -&gt; . NUM {EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}]</p> 
+ <p>大家注意看，表达式 <br> 1.[t -&gt; . t * f, {* EOI}] 和 <br> 2.[t -&gt; .t * f {EOI}] <br> 唯一的区别在于 look ahead 集合不同，第一个表达式的look ahead 集合比第二个表达式要大，我们称这种情况为表达式1 覆盖了表达式2，有了表达式1，表达式2就不必要了，因此我们把表达式2从集合里删除，同理表达式 <br> [t -&gt; .f {EOI}] <br> 也要被删除，这样 <br> closureSet为： <br> [s -&gt; . e {EOI}] <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}] <br> [f -&gt;. ( e ) {EOR}] <br> [f -&gt; . NUM {EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}]</p> 
+ <p>接下来继续弹出栈顶表达式： <br> [t -&gt; . f {* EOI}]</p> 
+ <p>生成新的表达式：</p> 
+ <p>[f -&gt; .( e ) {* EOI}] <br> [f -&gt; .NUM {* EOI}]</p> 
+ <p>将他们压入堆栈有： <br> productionStack: <br> [f -&gt; .NUM {* EOI}] <br> [f -&gt; .( e ) {* EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>由于生成的表达式覆盖了closureSet中原有的表达式：</p> 
+ <p>[f -&gt;. ( e ) {EOR}] <br> [f -&gt; . NUM {EOI}]</p> 
+ <p>将上面两个表达式从集合中删除，并将新生成的表达式加入集合：</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [e -&gt; .e + t {EOI}] <br> [e -&gt; . t {EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}] <br> [f -&gt; .( e ) {* EOI}] <br> [f -&gt; .NUM {* EOI}]</p> 
+ <p>此时栈顶两个表达式分别是： <br> [f -&gt; .NUM {* EOI}] <br> [f -&gt; .( e ) {* EOI}]</p> 
+ <p>这两个表达式中，.右边不是非终结符，所以直接将他们出栈。继续弹出栈顶表达式：</p> 
+ <p>[t -&gt; . t * f, {* EOI}]</p> 
+ <p>由于β 对应 * f, FIRST(β) = {<!-- --><em>},因此生成的look ahead 集合仍然是 {<!-- --></em> EOI}, 生成新的表达式为：</p> 
+ <p>[t -&gt; . t * f {* EOI}] <br> [t -&gt; . f {* EOI}]</p> 
+ <p>这两个表达式已经在集合中存在，所以不再加入集合。</p> 
+ <p>继续弹出栈顶表达式： <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>β 对应的是 + t, FIRST(β) = FIRST(+ t) = {+}, 于是生成新的表达式时对应的look ahead 集合是 {+ EOI},于是有：</p> 
+ <p>[e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}]</p> 
+ <p>分别将他们压入堆栈： <br> productionStack: <br> [e -&gt;. t {+ EOI}] <br> [e -&gt; . e + t {+ EOI}]</p> 
+ <p>由于这两个表达式覆盖了集合中的表达式：</p> 
+ <p>[e -&gt; . t {EOI}] <br> [e -&gt; .e + t {EOI}]</p> 
+ <p>所以讲上面两个表达式从集合中删除，将新表达式加入集合：</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}] <br> [f -&gt; .( e ) {* EOI}] <br> [f -&gt; .NUM {* EOI}] <br> [e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}] <br> 将栈顶表达式出栈： <br> [e -&gt;. t {+ EOI}]</p> 
+ <p>生成新的表达式：</p> 
+ <p>[t -&gt; . t * f {+ EOI}] <br> [t -&gt; .f {+ EOI}]</p> 
+ <p>将新生成的表达式压入堆栈同时加入集合： <br> productionStack: <br> [t -&gt; .f {+ EOI}] <br> [t -&gt; . t * f {+ EOI}] <br> [e -&gt; . e + t {+ EOI}]</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}] <br> [f -&gt; .( e ) {* EOI}] <br> [f -&gt; .NUM {* EOI}] <br> [e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}] <br> [t -&gt; . t * f {+ EOI}] <br> [t -&gt; .f {+ EOI}]</p> 
+ <p>弹出栈顶表达式： <br> [t -&gt; .f {+ EOI}]</p> 
+ <p>生成新的表达式：</p> 
+ <p>[f -&gt; . ( e ) {+ EOI}] <br> [f -&gt; . NUM {+ EOI} ] <br> 将新表达式压入堆栈和加入集合： <br> productionStack: <br> [f -&gt; . NUM {+ EOI} ] <br> [f -&gt; . ( e ) {+ EOI}] <br> [t -&gt; . t * f {+ EOI}] <br> [e -&gt; . e + t {+ EOI}]</p> 
+ <p>closureSet: <br> [s -&gt; . e {EOI}] <br> [t -&gt; . t * f, {* EOI}] <br> [t -&gt; . f {* EOI}] <br> [f -&gt; .( e ) {* EOI}] <br> [f -&gt; .NUM {* EOI}] <br> [e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}] <br> [t -&gt; . t * f {+ EOI}] <br> [t -&gt; .f {+ EOI}] <br> [f -&gt; . ( e ) {+ EOI}] <br> [f -&gt; . NUM {+ EOI} ]</p> 
+ <p>由于堆栈顶部的两个表达式， . 右边都不是非终结符，因此将他们直接出栈。</p> 
+ <p>继续弹出栈顶表达式：</p> 
+ <p>[t -&gt; . t * f {+ EOI}]</p> 
+ <p>此时β 对应的是 * f, FIRST(β) = FIRST(* f) = {<!-- --><em>}，于是新生成的表达式对应的look ahead 集合为 {<!-- --></em> + EOI}:</p> 
+ <p>[t -&gt; . t * f {* + EOI}] <br> [t -&gt; . f {* + EOI}]</p> 
+ <p>将表达式压入堆栈 <br> productionStack: <br> [t -&gt; . f {* + EOI}] <br> [t -&gt; . t * f {* + EOI}] <br> [e -&gt; . e + t {+ EOI}]</p> 
+ <p>注意到，新生成的表达式： <br> [t -&gt; . t * f {* + EOI}] <br> 它覆盖集合中原有表达式： <br> [t -&gt; . t * f {* EOI}] <br> [t -&gt; . t * f {+ EOI}]</p> 
+ <p>[t -&gt; . f {* + EOI}] <br> 覆盖了： <br> [t-&gt; . f {* EOI}] <br> [t -&gt; . f {+ EOI} ]</p> 
+ <p>删除被覆盖的表达式，加入新表达式 <br> closureSet: <br> [s -&gt; . e {EOI}] <br> [f -&gt; .( e ) {* EOI}] <br> [f -&gt; .NUM {* EOI}] <br> [e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}] <br> [f -&gt; . ( e ) {+ EOI}] <br> [f -&gt; . NUM {+ EOI} ] <br> [t -&gt; . t * f {* + EOI}] <br> [t -&gt; . f {* + EOI}]</p> 
+ <p>弹出栈顶表达式： <br> [t -&gt; . f {* + EOI}]</p> 
+ <p>构造新的表达式：</p> 
+ <p>[f -&gt; . ( e ) {* + EOI}] <br> [f -&gt; . NUM {* + EOI}]</p> 
+ <p>将他们压入堆栈： <br> productionStack: <br> [f -&gt; . NUM {* + EOI}] <br> [f -&gt; . ( e ) {* + EOI}] <br> [t -&gt; . t * f {* + EOI}] <br> [e -&gt; . e + t {+ EOI}]</p> 
+ <p>由于表达式 <br> [f -&gt; . ( e ) {* + EOI}] <br> 覆盖集合中的表达式： <br> [f -&gt; .( e ) {* EOI}] <br> [f -&gt; .( e ) {+ EOI}] <br> 以及 <br> [f -&gt; . NUM {* + EOI}] <br> 覆盖集合中原有表达式： <br> [f -&gt; .NUM {* EOI}] <br> [f -&gt; .NUM {+ EOI}]</p> 
+ <p>删除被覆盖的表达式，加入新表达式后 <br> closureSet: <br> [s -&gt; . e {EOI}] <br> [e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}] <br> [t -&gt; . t * f {* + EOI}] <br> [t -&gt; .f {+ EOI}] <br> [f -&gt; . ( e ) {* + EOI}] <br> [f -&gt; . NUM {* + EOI}]</p> 
+ <p>此时栈顶两表达式, . 右边的符号不是非终结符，将栈顶两个表达式出栈。</p> 
+ <p>接着继续弹出栈顶表达式： <br> [t -&gt; . t * f {* + EOI}]</p> 
+ <p>生成表达式： <br> [t -&gt; .t * f {* + EOI}] <br> [t -&gt; .f {* + EOI}] <br> 两个表达式已经在集合中存在，于是不做处理。</p> 
+ <p>继续弹出栈顶表达式：</p> 
+ <p>[e -&gt; . e + t {+ EOI}]</p> 
+ <p>它生成两个表达式</p> 
+ <p>[e -&gt; .e + t {+ EOI}] <br> [e -&gt; . t {+ EOI}]</p> 
+ <p>由于表达式都存在集合中，于是不做处理。到此堆栈为空，整个closure流程结束，此时整个closure集合为：</p> 
+ <p>[s -&gt; . e {EOI}] <br> [e -&gt; . e + t {+ EOI}] <br> [e -&gt;. t {+ EOI}] <br> [f -&gt; . ( e ) {+ EOI}] <br> [t -&gt; . t * f {* + EOI}] <br> [t -&gt; . f {* + EOI}] <br> [f -&gt; . ( e ) {* + EOI}] <br> [f -&gt; . NUM {* + EOI}]</p> 
+ <p>除了closure 这个步骤改变外，节点生成的其他步骤都保持不变。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

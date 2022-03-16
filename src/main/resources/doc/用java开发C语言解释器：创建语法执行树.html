@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 用java开发C语言解释器：创建语法执行树</title>
+ <body> 用java开发C语言解释器：创建语法执行树</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>本节内容比较复杂，请通过视频查看代码讲解和演示： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>我们已经成功解析了C语言的语法，接下来我们计划分两步走，一是开发一个C语言的解释器，也就是不编译，读取足够的源代码后直接执行。二是开发一个C语言的编译器，将C语言转换为java字节码，然后用java虚拟机来执行编译后的C程序。从这节开始，我们逐步实现解释器的开发。</p> 
+ <p>要想直接执行C语言代码，我们需要在语法解析的过程中构造一种数据结构，叫语法执行树，其本质上也是一颗多叉树，有了这棵树，我们就可以遍历这个树，然后在合适的节点，执行某种动作，进而实现执行C语言源代码的效果，我们先看看树节点： <br> <img src="img/1647416931686/-2795781138902053488.jpg" alt="这里写图片描述" title=""> <br> 一般来说，每一个非终结符都会对应一个这样的节点，该节点中的Type就是非终结符的类型，Text用来存储解析对象的文本信息，如果解析对象是一个变量，那么Text对应的是变量名字符串，如果解析对象是数字例如123，那么Text的内容就是”123”, Symbol 对应的就是变量的符号对象，Value是对应对象解析后的值，假设该节点对应的是数字123，那么Value的值就是数值123，如果对应的是一个变量，例如int a, 并且变量a的值是1，那么Value的值就是整形数1.Children 指向子节点队列, Production 对应的是相关表达式的序号。</p> 
+ <p>举个例子，对于语句：</p> 
+ <p>a + b;</p> 
+ <p>如果变量a 的值是1，变量b的值是2，该语句对应的语法表达式是：</p> 
+ <p>BINARY -&gt; BINARY + BINARY</p> 
+ <p>该表达式的序号是94， 那么这条语句解析后，我们的程序会构造如下的一个树： <br> <img src="img/1647416931792/-7186908273266284037.jpg" alt="这里写图片描述" title=""></p> 
+ <p>我们看看，给定下面一段代码，编译器是怎么构造一颗完整的执行树的：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">void</span> f() {
+<span class="hljs-keyword">int</span> a;
+<span class="hljs-keyword">int</span> b;
+a = <span class="hljs-number">1</span>;
+b = <span class="hljs-number">2</span>;
+
+b = a + b;
+}</code></pre> 
+ <p>构造流程如下： <br> 1： 解析器解析语句 int a; 然后根据表达式STATEMENT-&gt;LOCAL_DEFS进行递归，此时解析树构造一个节点类型为STATEMENT: <br> <img src="img/1647416931901/-6311673974837554449.jpg" alt="这里写图片描述" title=""></p> 
+ <p>2: 解析器接着会根据 STMT_LIST-&gt;STATEMENT进行递归，此时生成新节点STMT_LIST, 然后把上面生成的节点当成该节点的子节点： <br> <img src="img/1647416931951/-8361955447625743272.jpg" alt="这里写图片描述" title=""></p> 
+ <p>3: 解析语句 int b ; 同步骤1，根据表达式STATEMENT-&gt;LOCAL_DEF进行递归，然后构造类型为STATEMENT的节点： <br> <img src="img/1647416932025/8217619675646169211.jpg" alt="这里写图片描述" title=""></p> 
+ <p>4： 接着根据表达式STMT_LIST -&gt; STMT_LIST STATEMENT递归，同时生成新节点STMT_LIST, 并形成下面形式的树结构： <br> <img src="img/1647416932087/-6034689179327807181.jpg" alt="这里写图片描述" title=""></p> 
+ <p>5: 接着解析语句a = 1; 先把变量a 读入，然后根据表达式UNARY-&gt;NAME进行解析，接着生成一个UNARY的节点： <br> <img src="img/1647416932145/-3981430102872300631.jpg" alt="这里写图片描述" title=""></p> 
+ <p>6：解析器会根据表达式 BINARY -&gt; UNARY 进行递归，此时再次生成一个新的类型为BINARY的节点，并把上一节点当做自己的子节点: <br> <img src="img/1647416932211/3099788877354259320.jpg" alt="这里写图片描述" title=""></p> 
+ <p>7: 继续根据表达式NO_COMMA_EXPR -&gt; BINARY递归，同时生成新节点NO_COMMA_EXPR, 并把上面节点当做子节点： <br> <img src="img/1647416932288/-3406585368979791550.jpg" alt="这里写图片描述" title=""></p> 
+ <p>8: 读入等号后面的字符1, 它的解析流程跟步骤5，6，7是一样的，因此构造的语法执行树也是一样的： <br> <img src="img/1647416932366/-3264424379976869862.jpg" alt="这里写图片描述" title=""></p> 
+ <p>9: 此时语句 a = 1; 已经全部读入解析器，于是可以根据表达式: <br> NO_COMMA_EXPR -&gt; NO_COMMAR_EXPR EQUAL NO_COMMA_EXPR <br> 进行推导，并生成新节点，且把步骤7和8生成的节点当做自己的子节点： <br> <img src="img/1647416932457/2908192208840333932.jpg" alt="这里写图片描述" title=""></p> 
+ <p>10： 接着根据表达式: <br> EXPR -&gt; NO_COMMA_EXPR <br> STATEMENT-&gt;EXPR SEMI <br> STMT_LIST -&gt; STMT_LIST STATEMENT <br> 进行递归，并构造以下执行树： <br> <img src="img/1647416932575/-4708028428227647149.jpg" alt="这里写图片描述" title=""></p> 
+ <p>11： 接下来要解析的是语句 b = 2, 解析和树的构造步骤与前面一模一样，所以生成的树结构如下： <br> <img src="img/1647416932777/-7858167018101113375.jpg" alt="这里写图片描述" title=""></p> 
+ <p>12：接下来该解析语句 a = a + b 了，首先读入变量a,它的解析步骤和前面步骤5，6，7一模一样，因此也构造了相应的树结构： <br> <img src="img/1647416933006/-4118893780989486325.jpg" alt="这里写图片描述" title=""></p> 
+ <p>节点STMT_LIST* 表示步骤11生成的树的根节点，为了避免图形过于繁杂，我将步骤11所构造的树用该节点来表示。</p> 
+ <p>13： 接着读入等号后后面的变量a, 变量a 的解析跟步骤5，6是一样的，因此会形成下面的执行树： <br> <img src="img/1647416933088/-3092240477727484895.jpg" alt="这里写图片描述" title=""></p> 
+ <p>14： 继续读入等号和变量b,b的解析跟步骤13一样，因此生成语法执行树如下： <br> <img src="img/1647416933282/1448115620677955358.jpg" alt="这里写图片描述" title=""></p> 
+ <p>15: 此时根据表达式： <br> BINARY -&gt; BINARY PLUS BINARY进行递归，生成一个新的BINARY节点，然后将上面生成的节点作为子节点： <br> <img src="img/1647416933372/-517723729168200624.jpg" alt="这里写图片描述" title=""></p> 
+ <p>16: 解析器根据表达式： <br> NO_COMMA_EXPR -&gt; BINARY 进行递归，同时构造如下执行树： <br> <img src="img/1647416933648/5747029454049412321.jpg" alt="这里写图片描述" title=""></p> 
+ <p>17： 继续根据表达式： <br> NO_COMMA_EXPR -&gt; NO_COMMA_EXPR EQUAL NO_COMMA_EXPR <br> 递归，并同理构造执行树： <br> <img src="img/1647416933765/6074743238625336616.jpg" alt="这里写图片描述" title=""></p> 
+ <p>18： 接着继续根据一系列表达式进行递归: <br> EXPR -&gt; NO_COMMA_EXPR <br> STATEMENT -&gt; EXPR SEMI <br> STMT_LIST -&gt; STMT_LIST STATEMENT <br> 最终构造的执行树如下： <br> <img src="img/1647416933886/6653234590386072749.jpg" alt="这里写图片描述" title=""></p> 
+ <p>有了这颗语法执行树后，在下一节，我们将看看，如何通过遍历这棵树，实现代码执行的效果。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

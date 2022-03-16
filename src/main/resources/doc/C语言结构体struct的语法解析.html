@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> C语言结构体struct的语法解析</title>
+ <body> C语言结构体struct的语法解析</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>本节内容需要结合视频讲解才能更容易理解，视频播放地址如下： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>本节，我们着重研究结构体定义，也就是struct 这种变量定义，C语言编译器是如何解析的，本节我们要解析的结构体定义如下：</p> 
+ <pre class="prettyprint"><code class="language-C hljs cs"><span class="hljs-keyword">struct</span> tag {
+    <span class="hljs-keyword">int</span> x;
+    <span class="hljs-keyword">long</span> y;
+    <span class="hljs-keyword">char</span> z;
+    <span class="hljs-keyword">struct</span> tag* p;
+}name;</code></pre> 
+ <h4 id="11-结构体定义的解析语法">1.1 结构体定义的解析语法</h4> 
+ <pre><code>     * TYPE_SPECIFIER -&gt; STRUCT_SPECIFIER
+     * 
+     * STTUCT_SPECIFIER -&gt; STRUCT OPT_TAG LC DEF_LIST RC
+     *                     | STRUCT TAG
+     * 
+     * OPT_TAG -&gt; TAG
+     * 
+     * TAG -&gt; NAME
+     * 
+     * DEF_LIST -&gt;  DEF
+     * 
+     * DEF_LIST -&gt;  DEF_LIST DEF
+     *           
+     *             
+     * 
+     * 
+     *            
+     * DEF -&gt; SPECIFIERS  DECL_LIST SEMI
+     *        | SPECIFIERS SEMI
+     *       
+     *        
+     * DECL_LIST -&gt; DECL
+     *             | DECL_LIST COMMA DECL
+     *             
+     * DECL -&gt; VAR_DECL
+     * 
+     * VAR_DECL -&gt; NEW_NAME
+     *             | VAR_DECL LP RP
+     *             | VAR_DECL LP VAR_LIST RP
+     *             | LP VAR_DECL RP
+     *             | START VAR_DECL
+     *
+</code></pre> 
+ <p>我们先看这一句定义： <br> STTUCT_SPECIFIER -&gt; STRUCT OPT_TAG LC DEF_LIST RC</p> 
+ <p>STRUCT 是关键字struct 对应的标签, OPT_TAG 对应的是结构体变量的名字tag, LC 对应左大括号， DEF_LIST 对应结构体内部变量的定义序列，RC就是右大括号。这一句语法就已经描述了整个结构体的定义，解析的终点其实在 DEF_LIST， 这个非终结符描述的是结构体内部变量的定义规则，对DEF_LIST的解析是整个解析过程的难点。</p> 
+ <h4 id="12语法解析流程描述">1.2语法解析流程描述</h4> 
+ <p>解析开始时，词法解析器会把关键字struct读入，并返回一个STRUCT标签。</p> 
+ <p>读入struct 后面的变量名tag, 返回对应标签NAME.</p> 
+ <p>根据表达式 TAG -&gt; NAME, 将NAME转换成非终结符TAG.</p> 
+ <p>通过表达式 OPT_TAG -&gt; TAG , 将TAG转换成非终结符OPT_TAG.</p> 
+ <p>读入左大括号{, 并返回对应标签LC.</p> 
+ <p>*读入关键字int, 并返回对应的标签TYPE</p> 
+ <p>*根据表达式TYPE_SPECIFIER -&gt; TYPE, 将TYPE替换成非终结符TYPE_SPECIFIER. 这个表达式在前面的章节中讲解过，本节没有列出来。</p> 
+ <p>*根据表达式 TYPE_OR_CLASS -&gt; TYPE_SPECIFIER 将非终结符TYPE_SPECIFIER 转换成TYPE_OR_CLASS.</p> 
+ <p>*通过表达式 SPECIFIER -&gt; TYPE_OR_CLASS, 将非终结符TYPE_OR_CLASS转换成SPECIFIERS.</p> 
+ <p>上面几步完成了对关键字int 的解析。</p> 
+ <p>接着读入变量名x, 返回对应的标签NAME.</p> 
+ <p>*根据表达式NEW_NAME -&gt; NAME, 将非终结符NEW_NAME 压入堆栈。</p> 
+ <p>*根据表达式VAR_DECL -&gt; NEW_NAME 将非终结符换成VAR_DECL.</p> 
+ <p>*通过表达式DECL -&gt; VAR_DECL 将非终结符DECL替换掉VAR_DECL.</p> 
+ <p>*通过表达式DECL_LIST -&gt; DECL 将非终结符DECL_LIST 压入堆栈。</p> 
+ <p>*读入分号，并返回对应的标签SEMI</p> 
+ <p>*根据表达式DEF -&gt; SPECIFIERS DECL_LIST SEMI 将解析堆栈上的符号全部弹出，换成非终结符DEF.</p> 
+ <p>再次通过 DEF_LIST -&gt; DEF 将非终结符压入堆栈。</p> 
+ <p>在这一步我们可以看到，”int x ; “， 这一个变量定义语句可以被非终结符DEF_LIST所描述。</p> 
+ <p>接下来，解析器读入语句 “long y ;”，该语句的解析也同样经历前面带*号的解析步骤，最后”long y;” 会解析成非终结符DEF，此时解析堆栈顶部有两个非终结符DEF, DEF_LIST.</p> 
+ <p>通过表达式 DEF_LIST -&gt; DEF_LIST DEF 将两个非终结符归纳成一个非终结符DEF_LIST.</p> 
+ <p>解析器继续读入 “char z;”, 同样经历带*号的解析步骤后，把该语句解析成非终结符DEF, 这时解析堆栈头部又在此含有两个非终结符 DEF_LIST, DEF, 于是又可以通过表达式 DEF_LIST -&gt; DEF_LIST DEF 将两个非终结符归纳为一个非终结符DEF_LIST.</p> 
+ <p>接下来解析器再次遇到关键字struct, 读入后返回对应标签STRUCT.</p> 
+ <p>入读struct 后面的变量名tag,返回对应标签NAME.</p> 
+ <p>运用表达式 TAG -&gt; NAME, 将非终结符TAG压入堆栈。</p> 
+ <p>采用表达式STRUCT_SPECIFIER -&gt; STRUCT TAG 将堆栈顶部的两个非终结符替换成STRUCT_SPECIFIER.</p> 
+ <p>再通过TYPE_SPECIFIER -&gt; STRUCT_SPECIFIER 将栈顶非终结符替换成TYPE_SPECIFIER.</p> 
+ <p>接着分别通过两个表达式TYPE_OR_CLASS -&gt; TYPE_SPECIFIER 和 SPECIFIERS -&gt; TYPE_OR_CLASS, 将栈顶元素替换成SPECIFIERS.</p> 
+ <p>然后把代表指针的* 读入，返回对应标签STAR.</p> 
+ <p>读入星号后面的变量名p, 返回对应的标签NAME.</p> 
+ <p>通过表达式NEW_NAME -&gt; NAME, 将非终结符NEW_NAME压入解析堆栈。</p> 
+ <p>通过VAR_DECL -&gt; NEW_NAME 将栈顶元素替换成VAR_DECL.</p> 
+ <p>此时栈顶元素包含VAR_DECL, 和 STAR, 这两个元素正好形成表达式: <br> VAR_DECL -&gt; STAR VAR_DECL 的右边部分，于是经过一次reduce,将堆栈顶部的两个元素替换成VAR_DECL.</p> 
+ <p>继续通过表达式DECL -&gt; VAR_DECL, 将非终结符DECL压入堆栈。</p> 
+ <p>DECL 可以通过表达式DECL_LIST -&gt; DECL 替换成DECL_LIST.</p> 
+ <p>接着读入变量p后面的分号，返回对应标签SEMI</p> 
+ <p>此时，解析堆栈上含有三个元素：SEMI, DECL_LIST, SPECIFIERS, 他们正好构成表达式DEF -&gt; SPECIFIERS DECL_LIST SEMI 的右边，于是通过该表达式进行一次reduce, 将DEF替换掉这三个符号。</p> 
+ <p>此时，堆栈顶部有两个元素，DEF, DEF_LIST, 又正好构成表达式: <br> DEF_LIST -&gt; DEF_LIST DEF 的右边，于是又可以用DEF_LIST 替换掉堆栈顶部的两个元素。</p> 
+ <p>接着读入右括号 }, 返回对应标签RC.</p> 
+ <p>这时，堆栈顶部的5个元素正好对应表达式： <br> STRUCT_SPECIFIER -&gt; STRUCT OPT_TAG LC DEF_LIST RC 的右边，于是解析器可以一下子将这5个元素全部替换成STRUCT_SPECIFIER.</p> 
+ <p>接着解析器可以通过TYPE_SPECIFIER -&gt; STRUCT_SPECIFIER 将TYPE_SPECIFIER压入堆栈。</p> 
+ <p>然后把}后面的变量名name,读入，解析流程跟前面讲解的流程一样。</p> 
+ <p>读入最后的分号后，解析堆栈上的元素正好构成表达式： <br> EXT_DEF -&gt; .OPT_SPECIFIERS EXT_DECL_LIST SEMI <br> 的右边部分，于是整个解析堆栈顶部的元素全部弹出，换成符号EXT_DEF.</p> 
+ <p>接下来的推导跟以前一样，经过一系列固定步骤后，全局非终结符PROGRAM会被压入堆栈，从而使得解析器接收输入文本。</p> 
+ <p>由此可见，依赖本节给出的语法定义，解析器能够顺利的分解结构体的代码。</p> 
+ <p>通过这几节的解析流程分析，我们可以看到，写的再繁杂，再杂乱无章的程序代码，只要符合语法，那么这些看似随机组合的字符或单词，本质上遵从着一种非常严谨的层次和结构，这种层次和结构可以通过语法定义的方式描述出来，大道至简，任何复杂的系统，其本质都可以归因为若干简单的原理。这就是科学之美，编译原理的算法之美，学习编译原理或任何科学知识，其实是一种享受美的过程。</p> 
+ <p>要体验这种系统逻辑之美，需要巨大的耐心，和不厌其烦的探索，持之以恒的意志力，有这种恒心的人，才有可能“会当凌绝顶，一览众山小”，学习是一个不断攀爬，跌倒，再攀爬的过程，只有要紧牙，永不放弃的人，才有可能在光明顶感受到“荡胸生层云，决眦入归鸟”的人生成就感。</p> 
+ <p>再次以王安石《游褒禅山记》为每一位愿意“吾将上下而求索”的同学共勉：</p> 
+ <p>“古人之观于天地、山川、草木、虫鱼、鸟兽，往往有得，以其求思之深而无不在也。夫夷以近，则游者众；险以远，则至者少。而世之奇伟、瑰怪，非常之观，常在于险远，而人之所罕至焉，故非有志者不能至也。有志矣，不随以止也，然力不足者，亦不能至也。有志与力，而又不随以怠，至于幽暗昏惑而无物以相之，亦不能至也。然力足以至焉，于人为可讥，而在己为有悔；尽吾志也而不能至者，可以无悔矣，其孰能讥之乎？此余之所得也！”</p> 
+ <p>相信我，你，并不孤独！</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

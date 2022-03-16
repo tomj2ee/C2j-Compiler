@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言编译器：把C实现的快速排序算法编译成jvm字节码</title>
+ <body> java开发C语言编译器：把C实现的快速排序算法编译成jvm字节码</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>有了前面一系列的铺垫和准备后，我们终于能走到至关重要的一刻。在本节，我们将用C语言开发快速排序算法，然后利用我们的编译器把它编译成java字节码，让C语言编写的快速排序算法能在java虚拟机上顺利执行，完成本节内容后，编译器可以正确的将下列代码编译成java字节码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl">
+void quicksort(<span class="hljs-keyword">int</span> A[<span class="hljs-number">10</span>], <span class="hljs-keyword">int</span> p, <span class="hljs-keyword">int</span> r) {
+    <span class="hljs-keyword">int</span> <span class="hljs-keyword">x</span>;
+    <span class="hljs-keyword">int</span> i;
+    i = p - <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">int</span> j;
+    <span class="hljs-keyword">int</span> t;
+    <span class="hljs-keyword">int</span> v;
+    v = r - <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">if</span> (p &lt; r) {
+       <span class="hljs-keyword">x</span> = A[r];
+
+        <span class="hljs-keyword">for</span> (j = p; j &lt;= v; j++) {
+            <span class="hljs-keyword">if</span> (A[j] &lt;= <span class="hljs-keyword">x</span>) {  
+                 i++;
+                 t = A[i];
+                 A[i] = A[j];
+                 A[j] = t; 
+            }
+        }
+
+        v = i + <span class="hljs-number">1</span>;
+        t = A[v];
+        A[v] = A[r];
+        A[r] = t;
+
+         t = v - <span class="hljs-number">1</span>;
+         quicksort(A, p,  t);
+         t = v + <span class="hljs-number">1</span>;
+         quicksort(A, t,  r);
+    } 
+
+}
+
+
+void main () {
+    <span class="hljs-keyword">int</span> a[<span class="hljs-number">10</span>];
+    <span class="hljs-keyword">int</span> i;
+    <span class="hljs-keyword">int</span> t;
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"before quick sort:"</span>);
+    <span class="hljs-keyword">for</span>(i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) {
+        t = (<span class="hljs-number">10</span> - i);
+        a[i] = t;
+        <span class="hljs-keyword">printf</span>(<span class="hljs-string">"value of a[<span class="hljs-variable">%d</span>] is <span class="hljs-variable">%d</span>"</span>, i, a[i]);
+    }   
+
+
+    quicksort(a, <span class="hljs-number">0</span>, <span class="hljs-number">9</span>);
+
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"after quick sort:"</span>);
+    <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) {
+        <span class="hljs-keyword">printf</span>(<span class="hljs-string">"value of a[<span class="hljs-variable">%d</span>] is <span class="hljs-variable">%d</span>"</span>, i, a[i]);
+    }
+
+}</code></pre> 
+ <p>上面的C代码是根据《算法导论》所编写的实现快速排序的算法，主函数先初始化一个乱序的数组，然后通过调用quicksort函数实现排序。我一直把编译器能够解释编译C语言快速排序的代码作为章节的终点，一来快速排序算法的实现包含了循环，ifelse分支判断，递归等编程语言的关键要素，能正确解释和编译它意味着编译器达到了一定的成熟度。而本节完成后，我们的编译器能正确编译快速排序的C语言实现后，整个编译器实现课程经历两年时光，也该画上句号了。</p> 
+ <p>我们看看代码的实现，这次代码与前面代码的一大不同之处就是函数的递归调用。quicksort函数中会调用它自己，因此编译器在实现时，需要注意这个特点。原来我们实现函数的编译时，编译器会解读代码，直到函数第一次被调用时，才会把被调函数编译成字节码，但这里，被调函数在执行时会调用它自己，如果对原来的逻辑不加处理，那么编译器会反复的为quicksort函数生成代码，陷入到一种死循环的状态。负责函数调用的代码处于UnaryNodeExecutor中，代码修改如下：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">case CGrammarInitializer<span class="hljs-preprocessor">.Unary</span>_LP_RP_TO_Unary:
+        case CGrammarInitializer<span class="hljs-preprocessor">.Unary</span>_LP_ARGS_RP_TO_Unary:
+            //先获得函数名
+            boolean reEntry = false<span class="hljs-comment">;</span>
+            String funcName = (String)root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>)<span class="hljs-comment">;</span>
+            //change here
+            <span class="hljs-comment">/*
+             * 如果函数名被记录过，那表明现在的函数调用其实是递归调用
+             */</span>
+            if (funcName != <span class="hljs-string">""</span> &amp;&amp; funcName<span class="hljs-preprocessor">.equals</span>(BaseExecutor<span class="hljs-preprocessor">.funcName</span>)) {
+                reEntry = true<span class="hljs-comment">;</span>
+            }
+
+
+            ArrayList&lt;Object&gt; argList = null<span class="hljs-comment">;</span>
+            ArrayList&lt;Object&gt; symList = null<span class="hljs-comment">;</span>
+
+            if (production == CGrammarInitializer<span class="hljs-preprocessor">.Unary</span>_LP_ARGS_RP_TO_Unary) {
+                ICodeNode argsNode = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span>
+                argList = (ArrayList&lt;Object&gt;)argsNode<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+                symList = (ArrayList&lt;Object&gt;)argsNode<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>)<span class="hljs-comment">;</span>
+                FunctionArgumentList<span class="hljs-preprocessor">.getFunctionArgumentList</span>()<span class="hljs-preprocessor">.setFuncArgList</span>(argList)<span class="hljs-comment">; </span>
+                FunctionArgumentList<span class="hljs-preprocessor">.getFunctionArgumentList</span>()<span class="hljs-preprocessor">.setFuncArgSymbolList</span>(symList)<span class="hljs-comment">;</span>
+            }
+
+            //找到函数执行树头节点
+            ICodeNode func = CodeTreeBuilder<span class="hljs-preprocessor">.getCodeTreeBuilder</span>()<span class="hljs-preprocessor">.getFunctionNodeByName</span>(funcName)<span class="hljs-comment">;</span>
+            if (func != null) {
+                //change here <span class="hljs-keyword">push</span> parameters before calling function 
+                <span class="hljs-comment">/*
+                 * 函数调用时，把当前被调用的函数名记录下来，如果函数体内发送递归调用，那么编译器还会再次进入到
+                 * 这里，如果进入时判断到函数名跟我们这里存储的函数名一致，那表明发生了递归调用。
+                 */</span>
+                BaseExecutor<span class="hljs-preprocessor">.funcName</span> = funcName<span class="hljs-comment">;</span>
+                int count = <span class="hljs-number">0</span><span class="hljs-comment">;</span>
+                while (count &lt; argList<span class="hljs-preprocessor">.size</span>()) {
+                    Object objVal = argList<span class="hljs-preprocessor">.get</span>(count)<span class="hljs-comment">;</span>
+                    Object objSym = symList<span class="hljs-preprocessor">.get</span>(count)<span class="hljs-comment">;</span>
+                    if (objSym != null) {
+                        Symbol param = (Symbol)objSym<span class="hljs-comment">;</span>
+                        int idx = generator<span class="hljs-preprocessor">.getLocalVariableIndex</span>(param)<span class="hljs-comment">;</span>
+                        if (param<span class="hljs-preprocessor">.getDeclarator</span>(Declarator<span class="hljs-preprocessor">.ARRAY</span>) != null) {
+                            generator<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.ALOAD</span>, <span class="hljs-string">""</span> + idx)<span class="hljs-comment">;</span>
+                        } else {
+                            generator<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.ILOAD</span>, <span class="hljs-string">""</span>+idx)<span class="hljs-comment">;</span>
+                        }
+                    } else {
+                        int v = (int)objVal<span class="hljs-comment">;</span>
+                        generator<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.SIPUSH</span>, <span class="hljs-string">""</span>+v)<span class="hljs-comment">;</span>
+                    }
+
+                    count++<span class="hljs-comment">;</span>
+                }
+                //problem here handle reentry
+                if (BaseExecutor<span class="hljs-preprocessor">.isCompileMode</span> == true &amp;&amp; reEntry == false) {
+                    <span class="hljs-comment">/*
+                     * 在编译状态下，遇到函数自我递归调用则不需要再次为函数生成代码，只需要生成invoke指令即可
+                     */</span>
+                    Executor executor = ExecutorFactory<span class="hljs-preprocessor">.getExecutorFactory</span>()<span class="hljs-preprocessor">.getExecutor</span>(func)<span class="hljs-comment">;</span>
+                    ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.setInstructionBuffered</span>(true)<span class="hljs-comment">;</span>
+                    executor<span class="hljs-preprocessor">.Execute</span>(func)<span class="hljs-comment">;</span>
+                    symbol = (Symbol)root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>)<span class="hljs-comment">;</span>
+                    emitReturnInstruction(symbol)<span class="hljs-comment">;</span>
+                    ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.emitDirective</span>(Directive<span class="hljs-preprocessor">.END</span>_METHOD)<span class="hljs-comment">;</span>
+                    ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.setInstructionBuffered</span>(false)<span class="hljs-comment">;</span>
+                    ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.popFuncName</span>()<span class="hljs-comment">;</span>
+                }
+                compileFunctionCall(funcName)<span class="hljs-comment">;</span>
+
+
+                Object returnVal = func<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+                if (returnVal != null) {
+                    System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"function call with name "</span> + funcName + <span class="hljs-string">" has return value that is "</span> + returnVal<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, returnVal)<span class="hljs-comment">;</span>
+                }
+
+            } else {
+                ClibCall libCall = ClibCall<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-comment">;</span>
+                if (libCall<span class="hljs-preprocessor">.isAPICall</span>(funcName)) {
+                    Object obj = libCall<span class="hljs-preprocessor">.invokeAPI</span>(funcName)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, obj)<span class="hljs-comment">;</span>
+                } 
+            }
+
+
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span></code></pre> 
+ <p>当编译器解析到代码中发生函数调用时，它会把被调函数的名字记录下来，然后判断这个名字是否被记录过，如果前面有过记录，那么这次进入表明函数发生了递归调用，于是就不再执行函数对应的执行树，如果函数是第一次被调用，那么就执行函数对应的执行树，在执行过程中就可以把函数编译成字节码。</p> 
+ <p>除了上面的改动之后，还有不少地方需要相应的修改，具体的调试演示过程请参看视频<a href="http://study.163.com/course/courseMain.htm?courseId=1002830012" target="_blank" rel="noopener noreferrer">用java开发C语言编译器</a>。上面代码完成后，运行编译器，给定的C语言代码编译出的java汇编代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs d">.<span class="hljs-keyword">class</span> <span class="hljs-keyword">public</span> CSourceToJava
+.<span class="hljs-keyword">super</span> java/lang/Object
+
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> main([Ljava/lang/String;)V
+    sipush  <span class="hljs-number">10</span>
+    newarray    <span class="hljs-keyword">int</span>
+    astore  <span class="hljs-number">1</span>
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">0</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"before quick sort:"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">2</span>
+
+loop0:
+    iload   <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">10</span>
+if_icmpge branch0
+    sipush  <span class="hljs-number">10</span>
+    iload   <span class="hljs-number">2</span>
+    isub
+    istore  <span class="hljs-number">0</span>
+    aload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">2</span>
+    iload   <span class="hljs-number">0</span>
+    iastore
+    aload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">2</span>
+    iaload
+    istore  <span class="hljs-number">3</span>
+    iload   <span class="hljs-number">2</span>
+    istore  <span class="hljs-number">4</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"value of a["</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">4</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"] is "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">3</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    iload   <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">1</span>
+    iadd
+    istore  <span class="hljs-number">2</span>
+<span class="hljs-keyword">goto</span> loop0
+branch0:
+    aload   <span class="hljs-number">1</span>
+    sipush  <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">9</span>
+    invokestatic    CSourceToJava/quicksort([III)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"after quick sort:"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">2</span>
+
+loop2:
+    iload   <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">10</span>
+if_icmpge branch4
+    aload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">2</span>
+    iaload
+    istore  <span class="hljs-number">3</span>
+    iload   <span class="hljs-number">2</span>
+    istore  <span class="hljs-number">4</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"value of a["</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">4</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"] is "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">3</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    iload   <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">1</span>
+    iadd
+    istore  <span class="hljs-number">2</span>
+<span class="hljs-keyword">goto</span> loop2
+branch4:
+    <span class="hljs-keyword">return</span>
+.end method
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> quicksort([III)V
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">7</span>
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">6</span>
+    iload   <span class="hljs-number">1</span>
+    sipush  <span class="hljs-number">1</span>
+    isub
+    istore  <span class="hljs-number">6</span>
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">5</span>
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">4</span>
+    sipush  <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">3</span>
+    iload   <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">1</span>
+    isub
+    istore  <span class="hljs-number">3</span>
+    iload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">2</span>
+if_icmpge branch1
+
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">2</span>
+    iaload
+    istore  <span class="hljs-number">7</span>
+    iload   <span class="hljs-number">1</span>
+    istore  <span class="hljs-number">5</span>
+
+loop1:
+
+    iload   <span class="hljs-number">5</span>
+    iload   <span class="hljs-number">3</span>
+if_icmpgt ibranch1
+
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">5</span>
+    iaload
+    iload   <span class="hljs-number">7</span>
+if_icmpgt ibranch2
+
+    iload   <span class="hljs-number">6</span>
+    sipush  <span class="hljs-number">1</span>
+    iadd
+    istore  <span class="hljs-number">6</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">6</span>
+    iaload
+    istore  <span class="hljs-number">4</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">6</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">5</span>
+    iaload
+    iastore
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">5</span>
+    iload   <span class="hljs-number">4</span>
+    iastore
+ibranch2:
+
+    iload   <span class="hljs-number">5</span>
+    sipush  <span class="hljs-number">1</span>
+    iadd
+    istore  <span class="hljs-number">5</span>
+<span class="hljs-keyword">goto</span> loop1
+
+ibranch1:
+
+    iload   <span class="hljs-number">6</span>
+    sipush  <span class="hljs-number">1</span>
+    iadd
+    istore  <span class="hljs-number">3</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">3</span>
+    iaload
+    istore  <span class="hljs-number">4</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">3</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">2</span>
+    iaload
+    iastore
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">2</span>
+    iload   <span class="hljs-number">4</span>
+    iastore
+    iload   <span class="hljs-number">3</span>
+    sipush  <span class="hljs-number">1</span>
+    isub
+    istore  <span class="hljs-number">4</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">4</span>
+    invokestatic    CSourceToJava/quicksort([III)V
+    iload   <span class="hljs-number">3</span>
+    sipush  <span class="hljs-number">1</span>
+    iadd
+    istore  <span class="hljs-number">4</span>
+    aload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">4</span>
+    iload   <span class="hljs-number">2</span>
+    invokestatic    CSourceToJava/quicksort([III)V
+branch1:
+
+    <span class="hljs-keyword">return</span>
+.end method
+
+.end <span class="hljs-keyword">class</span>
+</code></pre> 
+ <p>上面的代码转换成jvm字节码运行后结果如下： <br> <img src="img/1647416419474/-8372096007725563866.jpg" alt="这里写图片描述" title=""></p> 
+ <p>编译原理几乎是计算机专业中最晦涩难懂的课程。很多学生学这门课只不过是为了通过考试，学完后对编译原理之精妙仍然是摸不着头脑。而很多教这门课的老师，也只不过是混口饭吃，他自己未必对编译原理有多少深入的了解和把握，于是与其昏昏，使人昭昭。毕业多年后，回过头来反省我所承受的教育，我发现我们的教育总是流于表面的肤浅，给学生展示的始终是冰山的一角，对冰山下的巨大形体去置若罔闻，于是整个系统虽然培养出大量的计算机专业人员，但有能力对计算机知识具备深入见解的人凤毛麟角，很多人其实是走上工作岗位后，通过大量的生产实践才开始对计算机知识有了一定程度的深入窥探的，我就是其中之一。</p> 
+ <p>计算机始终是一门理论结合实践的科学。光有理论却不能实践，那么理论看起来晦涩难懂，听起来虚儿巴脑，于是美妙的智慧结晶在应试教育体制下变成了虚张声势的怪兽，让学习它的人惊恐不慌，以为自己要被这只巨大的怪兽所吞灭。我是过来人，知道这种关说不练假把式的巨大危害，那种理论讲起来头头是道，搞得我晕头转向，处处受挫的煎熬感真是不忍回忆，我真心希望通过动手实践，能够让那些有志于在科技行业大展身手的年轻人不要再走我的老路。</p> 
+ <p>如果人类只会谈情说爱，那么早就灭绝了。因此爱的核心在做不在说，科学技术的理解和掌握更是如此，动手吧！Just Fuck It!</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416419568/3015566268624127353.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

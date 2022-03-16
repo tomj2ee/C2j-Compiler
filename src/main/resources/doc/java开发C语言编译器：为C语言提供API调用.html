@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言编译器：为C语言提供API调用</title>
+ <body> java开发C语言编译器：为C语言提供API调用</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>我们第一次使用C语言开发程序时，往往是在控制台上打印一句”Hello World”,实现打印语句功能的函数是printf, 这个函数是有C语言的链接库提供的，开发者可以直接调用，类似于这种无需自己实现，直接可以调用的函数，我们都称为库函数，或是API, 本节，我们要为当前构建的虚拟机提供C语言库函数，我们要给解释器提供一种函数调用机制，这些函数无需程序自己实现，而是由我们的解释器提供的，C语言程序直接调用即可，这节，我们要实现的一个库函数就是printf. 完成本节代码后，我们的解释器能解释执行下面程序：</p> 
+ <pre class="prettyprint"><code class=" hljs perl">void main() {
+<span class="hljs-keyword">printf</span>(<span class="hljs-string">"a is <span class="hljs-variable">%d</span>:"</span>,<span class="hljs-number">1</span>);
+}</code></pre> 
+ <p>printf函数是我们解释器提供给代码的，有了库函数，程序的开发便能高效很多。</p> 
+ <p>库函数机制的实现由新构造的类ClibCall,我们先看看它的实现代码：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.HashSet;
+<span class="hljs-keyword">import</span> java.util.Set;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ClibCall</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> Set&lt;String&gt; apiSet;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">ClibCall</span>() {
+        apiSet = <span class="hljs-keyword">new</span> HashSet&lt;String&gt;();
+        apiSet.add(<span class="hljs-string">"printf"</span>);
+    }
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> ClibCall instance = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ClibCall <span class="hljs-title">getInstance</span>() {
+
+        <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {
+            instance = <span class="hljs-keyword">new</span> ClibCall();
+        }
+
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isAPICall</span>(String funcName) {
+        <span class="hljs-keyword">return</span> apiSet.contains(funcName);
+    }
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">invokeAPI</span>(String funcName) {
+        <span class="hljs-keyword">switch</span> (funcName) {
+
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"printf"</span>:
+            <span class="hljs-keyword">return</span> handlePrintfCall();
+
+        <span class="hljs-keyword">default</span>:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+        }
+    }
+
+    <span class="hljs-keyword">private</span> Object <span class="hljs-title">handlePrintfCall</span>() {
+        ArrayList&lt;Object&gt; argsList = FunctionArgumentList.getFunctionArgumentList().getFuncArgList(<span class="hljs-keyword">false</span>);
+        String argStr = (String)argsList.get(<span class="hljs-number">0</span>);
+        String formatStr = <span class="hljs-string">""</span>;
+
+        <span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">int</span> argCount = <span class="hljs-number">1</span>;
+        <span class="hljs-keyword">while</span> (i &lt; argStr.length()) {
+            <span class="hljs-keyword">if</span> (argStr.charAt(i) == <span class="hljs-string">'%'</span> &amp;&amp; i+<span class="hljs-number">1</span> &lt; argStr.length() &amp;&amp; 
+                    argStr.charAt(i+<span class="hljs-number">1</span>) == <span class="hljs-string">'d'</span>) {
+                i += <span class="hljs-number">2</span>;
+                formatStr += argsList.get(argCount);
+                argCount++;
+            } <span class="hljs-keyword">else</span> {
+                formatStr += argStr.charAt(i);
+                i++;
+            }
+        }
+
+        System.out.println(formatStr);
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}
+</code></pre> 
+ <p>ClibCall 包含了一个集合类叫apiSet, 其用于存储库函数的函数名，当代码中有函数调用时，解释器拿到被调函数的名字，提交给ClibCall, 该类会在apiSet中查找是否含有与给定名字相同的字符串，如果有，那意味着该函数属于库函数。</p> 
+ <p>由于目前我们只实现了一个库函数printf, 因此初始化时，我们把字符串”printf”加入到该集合中。 isAPICall 传入的是函数名，如果函数名包含在apiSet里面，那么返回true, 表明他是库函数调用。</p> 
+ <p>invokeAPICall 用来执行给定的库函数，传入参数是库函数的名称。在里面，解释器根据不同的库函数名称，去实现不同的库函数。handlePrintfCall用于实现printf调用，首先，它获得输入参数，第一个输入参数是要显示到控制台上的字符串，在字符串中，可能会含有格式化字符，当前我们实现的printf可接受的格式化字符是%d. 在printf的模拟实现中，我们遍历每一个字符，当遇到%d时，我们从参数列表中获得对应的数值，然后把数值替换%d格式符，最后通过println把格式化后的字符串打印到控制台上。</p> 
+ <p>有了库函数调用后，每当解释器解析到函数调用是，需要确定当前调用的函数是代码自己实现的，还是库函数提供的，这个机制的实现在UnaryExecutor中，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION); 
+        String text ;
+        Symbol symbol;
+        Object value;
+        ICodeNode child;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+        <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_LP_ARGS_RP_TO_Unary:
+            <span class="hljs-comment">//先获得函数名</span>
+            String funcName = (String)root.getChildren().get(<span class="hljs-number">0</span>).getAttribute(ICodeKey.TEXT);
+            <span class="hljs-keyword">if</span> (production == CGrammarInitializer.Unary_LP_ARGS_RP_TO_Unary) {
+                ICodeNode argsNode = root.getChildren().get(<span class="hljs-number">1</span>);
+                ArrayList&lt;Object&gt; argList = (ArrayList&lt;Object&gt;)argsNode.getAttribute(ICodeKey.VALUE);
+                FunctionArgumentList.getFunctionArgumentList().setFuncArgList(argList); 
+            }
+
+            <span class="hljs-comment">//找到函数执行树头节点</span>
+            ICodeNode func = CodeTreeBuilder.getCodeTreeBuilder().getFunctionNodeByName(funcName);
+            <span class="hljs-keyword">if</span> (func != <span class="hljs-keyword">null</span>) {
+                Executor executor = ExecutorFactory.getExecutorFactory().getExecutor(func);
+                executor.Execute(func);
+                Object returnVal = func.getAttribute(ICodeKey.VALUE);
+                <span class="hljs-keyword">if</span> (returnVal != <span class="hljs-keyword">null</span>) {
+                    System.out.println(<span class="hljs-string">"function call with name "</span> + funcName + <span class="hljs-string">" has return value that is "</span> + returnVal.toString());
+                    root.setAttribute(ICodeKey.VALUE, returnVal);
+                }
+            } <span class="hljs-keyword">else</span> {
+                ClibCall libCall = ClibCall.getInstance();
+                <span class="hljs-keyword">if</span> (libCall.isAPICall(funcName)) {
+                    Object obj = libCall.invokeAPI(funcName);
+                    root.setAttribute(ICodeKey.VALUE, obj);
+                } 
+            }
+        ....
+        }</code></pre> 
+ <p>当解释器解析函数调用时，它现在函数调用表中，查找给定函数的语法执行树头结点，如果找不到的话，那么解释器知道，这个函数是库函数，于是调用ClibCall来处理，它先通过isAPICall来判断，给定函数是否是库函数，如果是的话，则调用invokeAPI来执行库函数提供的功能。</p> 
+ <p>有了ClibCall, 以后我们想要添加新的库函数时，只要修改ClibCall的实现即可，基于现在的架构基础上，我们今后可以快速的实现更多库函数，从而让我们的解释器越来越强大！</p> 
+ <p>更加具体的代码解释和调试过程请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416433844/-5487320899241808811.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 编译器开发：C语言循环控制语句的解析</title>
+ <body> 编译器开发：C语言循环控制语句的解析</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>若要深入理解本节内容，请参看视频讲解及相关代码演示： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>任何编程语言，最常用的就是循环语句了，无论何种编程语言，都必须包含循环控制语句，在C语言中，for, while, do..while 这三种循环语句的使用，占据了源程序代码的绝大部分，因此，要开发C编译器，对这三种循环语句的语法解析是必不可少的，我们先看看他们的语法定义：</p> 
+ <pre class="prettyprint"><code class="language-C hljs lasso">STATEMENT <span class="hljs-subst">-&gt; </span><span class="hljs-keyword">WHILE</span> LP TEST RP STATEMENT 
+STATEMENT <span class="hljs-subst">-&gt; </span>FOR LP OPT_EXPR  TEST SEMI END_OPT_EXPR RP STATEMENT
+OPT_EXPR <span class="hljs-subst">-&gt; </span>EXPR SEMI
+OPT_EXPR <span class="hljs-subst">-&gt; </span>SEMI
+END_OPT_EXPR <span class="hljs-subst">-&gt; </span>EXPR
+STATEMENT <span class="hljs-subst">-&gt; </span><span class="hljs-keyword">DO</span> STATEMENT <span class="hljs-keyword">WHILE</span> LP TEST RP SEMI</code></pre> 
+ <p>第一句语法对应的是while 循环， 例如：</p> 
+ <pre class="prettyprint"><code class="language-C hljs r"><span class="hljs-keyword">while</span> (i &lt; <span class="hljs-number">10</span>) {
+<span class="hljs-keyword">...</span>
+}</code></pre> 
+ <p>其中i &lt; 10 对应语法中的TEST, {…}这部分对应语法中的statement</p> 
+ <p>第二句语法： <br> STATEMENT -&gt; FOR LP OPT_EXPR TEST SEMI END_OPT_EXPR RP STATEMENT <br> 对应的是for 循环，注意OPT_EXPR 可以是一个表达式，也可以是一个分号，这样该语法就能对应下面的循环代码：</p> 
+ <pre class="prettyprint"><code class="language-C hljs r"><span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) {<!-- --><span class="hljs-keyword">...</span>}
+或
+<span class="hljs-keyword">for</span>(; i&lt; <span class="hljs-number">10</span>; i++) {<!-- --><span class="hljs-keyword">...</span>}</code></pre> 
+ <p>最后一句语法对应的是do…while 循环，适用于下面情况：</p> 
+ <pre class="prettyprint"><code class="language-C hljs r">do {
+<span class="hljs-keyword">...</span>
+} <span class="hljs-keyword">while</span> (i &lt; <span class="hljs-number">10</span>);</code></pre> 
+ <p>下面我们分别依据几个实例来讲解解析器对循环语句的解析过程，大家一定要通过观看视频才好深入理解本节的算法内涵。先看对for循环的解析：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">void</span> f() {
+<span class="hljs-keyword">int</span> a = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>;
+  <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">10</span>; i++) {
+     a = a + <span class="hljs-number">1</span>;
+  }
+}</code></pre> 
+ <p>1: 解析器通过以下若干个语法表达式来解析 void f() , 这些内容在前面章节已经讲解过。</p> 
+ <pre><code>读入 void ,得到标签TYPE
+通过表达式：
+TYPE_SPECIFIER -&gt; .TYPE
+TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER
+SPECIFIERS -&gt; .TYPE_OR_CLASS
+OPT_SPECIFIERS -&gt; .SPECIFIERS
+然后读入函数名f, 返回标签NAME,然后通过表达式：
+FUNCT_DECL -&gt; .NEW_NAME LP RP
+把开头的函数的定义进行解析。
+</code></pre> 
+ <p>2：读入左括号,获得对应标签LC，进入STATEMENT部分的解析。</p> 
+ <p>3: 解析器将通过下面步骤对变量声明语句： int a = 0; int i = 0; 进行解析，解析步骤在前面章节已经讲解过：</p> 
+ <pre><code>   读入关键字int, 得到标签type.
+   根据以下表达式进行推导：
+   TYPE_SPECIFIER -&gt; .TYPE
+   TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER
+   SPECIFIERS -&gt; .TYPE_OR_CLASS
+   读入变量名a, 返回标签NAME,通过以下表达式进行推导：
+   NEW_NAME -&gt; .NAME
+   VAR_DECL -&gt; .NEW_NAME
+   读入符号 =， 返回标签 EQUAL，读入数字0，返回标签NUMBER,继续根据相
+   关表达式进行语法推导：
+   UNARY -&gt; .NUMBER
+   BINARY -&gt; .UNARY
+   NO_COMMA_EXPR -&gt; .BINARY
+   EXPR -&gt; .NO_COMMA_EXPR
+   INITIALIZER -&gt; .EXPR
+   DECL -&gt; .VAR_DECL EQUAL INITIALIZER
+   DECL_LIST -&gt; .DECL
+   读入分号，得到标签SEMI,继续根据表达式进行推导：
+   DEF -&gt; .SPECIFIERS DECL_LIST SEMI
+   DEF_LIST -&gt; .DEF
+   LOCAL_DEFS -&gt; .DEF_LIST
+   STATEMENT -&gt; .LOCAL_DEFS
+   STMT_LIST -&gt; .STATEMENT
+</code></pre> 
+ <p>上面步骤重复2次，从而对int a= 0; int i = 0; 进行解析</p> 
+ <p>4： 读入关键字for, 读入左括号(, 读入变量名i, 得到标签NAME, 根据以下语法表达式进行递归：</p> 
+ <pre><code>    UNARY -&gt; .NAME
+    BINARY -&gt; .UNARY
+    NO_COMMA_EXPR -&gt; .BINARY
+</code></pre> 
+ <p>读入i 后面的等号和数字0，根据下面的表达式进行递归：</p> 
+ <pre><code>  UNARY -&gt; .NUMBER
+  NO_COMMA_EXPR -&gt; .BINARY
+  NO_COMMA_EXPR -&gt; .NO_COMMA_EXPR EQUAL NO_COMMA_EXPR
+  EXPR -&gt; .NO_COMMA_EXPR
+</code></pre> 
+ <p>读入分号，得到标签SEMI, 根据表达式递归：</p> 
+ <pre><code>   OPT_EXPR -&gt; .EXPR SEMI
+</code></pre> 
+ <p>这样，i = 0 就被解释为 OPT_EXPR.</p> 
+ <p>5: 继续读入变量名i ,得到标签NAME, 根据下面表达式进行递归：</p> 
+ <pre><code>   UNARY -&gt; .NAME
+   BINARY -&gt; .UNARY
+   读入符号&lt; 得到标签 RELOP 读入小于号后面的数字10，返回标签NUMBER,
+   继续通过下面表达式进行递归：
+   UNARY -&gt; .NUMBER
+   BINARY -&gt; .UNARY
+   BINARY -&gt; .BINARY RELOP BINARY
+   NO_COMMA_EXPR -&gt; .BINARY
+   EXPR -&gt; .NO_COMMA_EXPR
+   TEST -&gt; .EXPR
+</code></pre> 
+ <p>这意味着，解析器将表达式 i &lt; 10 解释为 TEST.</p> 
+ <p>6: 继续读入后面的分号,得到标签SEMI, 读入变量i, 得到标签NAME,根据下面表达式进行递归：</p> 
+ <pre><code>   UNARY -&gt; .NAME
+   读取后面的符号++, 返回标签INCOP,继续根据下面表达式递归：
+   BINARY -&gt; .UNARY
+   NO_COMMA_EXPR -&gt; .BINARY
+   EXPR -&gt; .NO_COMMA_EXPR
+   END_OPT_EXPR -&gt; .EXPR
+</code></pre> 
+ <p>也就是说 i++ 这个表达式被解析器解读为END_OPT_EXPR.</p> 
+ <p>7: 读入右括号),和左大括号，解析器开始 进入for 下面的STATEMENT部分的解析。由于在for循环体中，只有一句语句 a = a + 1, 因此接下来将对这句赋值语句进行解析。</p> 
+ <p>8： 读入变量名 a, 得到对应标签NAME, 然后根据下面表达式进行递归：</p> 
+ <pre><code>  UNARY -&gt; .NAME
+  BINARY -&gt; .UNARY
+  NO_COMMA_EXPR -&gt; .BINARY
+  读入符号=，返回标签EQUAL, 读入等号后面的变量a,得到标签NAME,继续根据
+  以下表达式进行解析：
+  UNARY -&gt; .NAME
+  BINARY -&gt; .UNARY
+  读入符号+, 得到标签PLUS,读入数字1，得到标签NUMBER,继续根据表达式
+  进行推导：
+  UNARY -&gt; .NUMBER
+  BINARY -&gt; .UNARY
+  BINARY -&gt; .BINARY PLUS BINARY
+  NO_COMMA_EXPR -&gt; .BINARY
+  EXPR -&gt; .NO_COMMA_EXPR
+  读入分号，得到标签SEMI,继续根据表达式进行推导：
+  STATEMENT -&gt; .EXPR SEMI
+  STMT_LIST -&gt; .STATEMENT
+</code></pre> 
+ <p>到这里，解析器把语句a = a + 1; 先解读成EXPR, 然后继续把该表达式推导成STMT_LIST</p> 
+ <p>9: 读入右大括号 }, 然后根据表达式进行递归：</p> 
+ <pre><code> COMPOUND_STMT -&gt; .LC STMT_LIST RC
+ STATEMENT -&gt; .COMPOUND_STMT
+</code></pre> 
+ <p>也就是说，解析器把for 语句后面的{…} 这部分解析成STATEMENT.</p> 
+ <p>10: 根据表达式进行递归：</p> 
+ <pre><code>STATEMENT -&gt; .FOR LP OPT_EXPR TEST SEMI END_OPT_EXPR RP STATEMEN
+</code></pre> 
+ <p>这时，整个for(…){…} 的代码部分被解析器解析成STATEMENT. 从而整个for循环语句能被解析器全部吸收</p> 
+ <p>11： 接下来的推导跟以前一样，最后会推导到全局非终结符，进而解析器能够解析当前输入的代码。</p> 
+ <p>对while, do…while 语句的解析请参看视频：</p> 
+ <p><a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

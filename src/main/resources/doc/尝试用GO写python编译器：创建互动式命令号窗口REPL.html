@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 尝试用GO写python编译器：创建互动式命令号窗口REPL</title>
+ <body> 尝试用GO写python编译器：创建互动式命令号窗口REPL</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>上一节完成的词法解析器存在一些明显问题，例如在识别数字时，面对字符串“123abc"，它会识别为两者情况，分别为NUMBER:123,然后是IDENTIFIER:anc,实际上这样的字符串应该被认为是语法错误。另外我们还有一些”连号“操作符没有处理，例如“==, !=, – ,++"等。</p> 
+ <p>本节我们将在上一节的基础上对词法解析器做进一步完善。首先在token.go里面添加新的操作符定义：<br> ···<br> const (<br> ILLEGAL = “ILLEGAL”<br> EOF = “EOF”<br> IDENTIFIER = “IDENTIFIER” //变量类型对应的归类<br> NUMBER = “NUMBER” //数值类型对应的归类<br> ASSIGN = “=” //赋值操作符<br> PLUS = “+” //加号操作符<br> LPAR = “(”<br> RPAR = “)”<br> LBRACE = “{”<br> RBRACE = “}”<br> COMMA = “,”<br> COLON = “:”<br> DEF = “def” //关键字<br> INT = “int”<br> RETURN = “return”<br> ASSERT = “assert”<br> AND = “and”</p> 
+ <pre><code>//第三节添加
+TRUE = "True"
+FALSE = "False"
+IF = "if"
+ELSE = "else"
+EQUAL = "=="
+NOTEQUAL = "!="
+GREATEREQUAL = "&gt;="
+LESSEQUAL = "&lt;="
+MINUS = "-"
+BANG = "!"
+ASTERISK = "*"
+SLASH = "/"
+LT = "&lt;"
+GT = "&gt;"
+//第三节添加
+</code></pre> 
+ <p>)</p> 
+ <p>var keywords = map[string]TokenType {<!-- --><br> “def” : DEF,<br> “int” : INT,<br> “return” : RETURN,<br> “assert” : ASSERT,<br> “and” : AND,<br> //第三节添加<br> “if” : IF ,<br> “else” : ELSE,<br> “True” : TRUE,<br> “False” : FALSE,<br> //第三节添加<br> }<br> ···<br> 现在有关问题在于，有些操作符必须读取双字符才能认定，在lexer.go中的NextToken函数，它的switch只能接收单个字符，因此要识别"&gt;=", "!="等这些符号时，我们需要在读取到第一个字符时，还需要再读取下一个字符，这样获取到两个字符后才能做出判断，于是我们在lexer.go里面再添加一个函数：</p> 
+ <pre><code>func (l *Lexer) peekChar() byte {
+	if l.readPosition &gt;= len(l.input) {
+		return 0 
+	} else {
+		return l.input[l.readPosition]
+	}
+}
+</code></pre> 
+ <p>当解析器读取到符号"=", “!”, “&lt;”, "&gt;"时，它还需要借助上面的函数获取下一个字符，这样才能决定当前遇到的操作符是哪一种，代码如下：</p> 
+ <pre><code>func (l *Lexer) NextToken() token.Token{//读取一个字符，判断是否属于特定分类
+    var tok token.Token
+	//忽略空格，回车，换行等特定字符
+	l.skipSpecialChar()
+
+	switch l.ch {
+	 。。。。
+	 //第三节添加
+	case '-':
+		tok = newToken(token.MINUS, l.ch)
+	case '*':
+		tok = newToken(token.ASTERISK, l.ch)
+	case '/':
+		tok = newToken(token.SLASH, l.ch)
+	case '=' :
+		if l.peekChar() == '=' {
+			//遇到==操作符
+			ch := l.ch 
+			l.readChar()
+			tok = token.Token{Type: token.EQUAL, Literal: string(ch) + string(l.ch}
+		} else {
+			tok = newToken(token.ASSIGN, l.ch)
+		}
+	case '!':
+		if l.peekChar() == '=' {
+			//操作符!=
+			ch := l.ch 
+			l.readChar()
+			tok = token.Token{Type: token.NOEQUAL, Literal: string(ch) + string(l.ch)}
+		} else {
+			tok = newToken(token.BANG, l.ch)
+		}
+	case '&lt;':
+		if l.peekChar() == '=' {
+			//操作符!=
+			ch := l.ch 
+			l.readChar()
+			tok = token.Token{Type: token.LESSEQUAL, Literal: string(ch) + string(l.ch)}
+		} else {
+			tok = newToken(token.LT, l.ch)
+		}
+	case '&gt;':
+		if l.peekChar() == '=' {
+			//操作符!=
+			ch := l.ch 
+			l.readChar()
+			tok = token.Token{Type: token.GREATEREQUAL, Literal: string(ch) + string(l.ch)}
+		} else {
+			tok = newToken(token.GT, l.ch)
+		}
+     。。。。
+     }
+     。。。。     
+}
+</code></pre> 
+ <p>现在我们可以再次完善用于测试的python代码，在lexer_test.go里面进行修改如下：</p> 
+ <pre><code>
+func TestNextToken2(t *testing.T) {
+	input := `
+	def add(x, y):
+	    assert 0 &lt;= x &lt;= y
+	    z = x + y
+	    return z
+	`
+
+	tests := []struct {
+		expectedType token.TokenType 
+		expectedLiteral string 
+	} {
+		{token.DEF, "def"},
+		{token.IDENTIFIER, "add"},
+		{token.LPAR, "("},
+		{token.IDENTIFIER, "x"},
+		{token.COMMA, ","},
+		{token.IDENTIFIER, "y"},
+		{token.RPAR, ")"},
+		{token.COLON, ":"},
+		//第三节添加
+		{token.ASSERT, "assert"},
+		{token.NUMBER, "0"},
+		{token.LESSEQUAL, "&lt;="},
+		{token.IDENTIFIER, "x"},
+		{token.LESSEQUAL, "&lt;="},
+		{token.IDENTIFIER, "y"},
+		//第三节添加
+		{token.IDENTIFIER, "z"},
+		{token.ASSIGN, "="},
+		{token.IDENTIFIER, "x"},
+		{token.PLUS, "+"},
+		{token.IDENTIFIER, "z"},
+		{token.RETURN, "return"},
+		{token.IDENTIFIER, "z"},
+	}
+
+	l := New(input)
+	for i, tt := range tests {
+		tok := l.NextToken()
+
+		if tok.Type != tt.expectedType {
+			t.Fatalf("test[%d] - tokenType wrong. expected=%q, got=%q",
+		    i, tt.expectedType, tok.Type)
+
+			if tok.Literal != tt.expectedLiteral {
+				t.Fatalf("tests[%d] - literal wrong. expected=%q, got=%q",
+			    i, tt.expectedLiteral, tok.Literal)
+			}
+		}
+	}
+}
+</code></pre> 
+ <p>执行go test后，可以发现上面用例可以通过，这意味着我们的词法解析请求已经能够识别比较复杂的python代码了。</p> 
+ <p>有过Python开发经验的同学都知道，在命令号行窗口输入命令python后，我们可以进入一个互动环境，在里面可以直接输入代码，点击回车就能直接运行，现在我们也来实现这个功能。在根目录创建文件夹repl，然后在里面创建文件repl.go,然后输入代码如下：</p> 
+ <pre><code>package repl 
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"lexer"
+	"token"
+)
+
+const PROMPT = "&gt;&gt;"
+
+func Start(in io.Reader, out io.Writer) {
+	scanner := bufio.NewScanner(in) //从控制台获取输入
+
+	for {
+		fmt.Printf(PROMPT)
+		scanned := scanner.Scan() //点击回车后返回输入内容
+		if !scanned {
+			return //没有输入内容
+		}
+
+		lien := scanner.Text() //当前输入的内容
+		l := lexer.New(line) 
+
+		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
+			fmt.Printf("%+v\n", tok) //输出解析的结果
+		}
+	}
+}
+</code></pre> 
+ <p>接下来我们把main.go的内容输入如下：</p> 
+ <pre><code>package repl 
+
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"lexer"
+	"token"
+)
+
+const PROMPT = "&gt;&gt;"
+
+func Start(in io.Reader, out io.Writer) {
+	scanner := bufio.NewScanner(in) //从控制台获取输入
+
+	for {
+		fmt.Printf(PROMPT)
+		scanned := scanner.Scan() //点击回车后返回输入内容
+		if !scanned {
+			return //没有输入内容
+		}
+
+		line := scanner.Text() //当前输入的内容
+		l := lexer.New(line) 
+
+		for tok := l.NextToken(); tok.Type != token.EOF; tok = l.NextToken() {
+			fmt.Printf("%+v\n", tok) //输出解析的结果
+		}
+	}
+}
+
+</code></pre> 
+ <p>上面代码运行后结果如下：<br> <img src="img/1647416410243/-7410637253891636882.jpg" alt="请添加图片描述"><br> 可以看到，我们当前完成的工作还真有一点Python编译环境的味道。<a href="https://github.com/wycl16514/-GO-python-REPL.git">完整代码请点击这里</a>{https://github.com/wycl16514/-GO-python-REPL.git}</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

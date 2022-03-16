@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> C语言枚举类型的语法分析和类型系统实现</title>
+ <body> C语言枚举类型的语法分析和类型系统实现</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>本节，我们看看对于枚举类型，C语言编译器是如何解析的。我们使用下面的实例去实现语法解析和类型系统的建立：</p> 
+ <pre class="prettyprint"><code class="language-C hljs rust"><span class="hljs-keyword">enum</span> <span class="hljs-title">tag</span> {a, b, c = <span class="hljs-number">5</span>, d} x;</code></pre> 
+ <p>上面的枚举定义会被C编译器转义成下面的形式：</p> 
+ <pre class="prettyprint"><code class="language-C hljs cs"><span class="hljs-keyword">enum</span> tag;
+<span class="hljs-keyword">int</span> x;
+<span class="hljs-keyword">int</span> a = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">int</span> b = <span class="hljs-number">1</span>;
+<span class="hljs-keyword">int</span> c = <span class="hljs-number">5</span>;
+<span class="hljs-keyword">int</span> d = <span class="hljs-number">6</span></code></pre> 
+ <p>上面的代码中，enum被当做一种数据类型， x 被当做整形对待，tag和x没什么用，会在最终生成代码中给抛弃掉。</p> 
+ <p>我们先看看枚举类型的解析语法： <br> TYPE_SPECIFIER -&gt; ENUM_SPECIFIER <br> ENUM_SPECIFIER -&gt; ENUM_NT NAME_NT OPT_ENUM_LIST <br> ENUM_NT -&gt; ENUM <br> ENUMERATOR_LIST -&gt; ENUMERATOR <br> EMERATOR_LIST -&gt; ENUMERATOR_LIST COMMA ENUMERATOR <br> ENUMERATOR -&gt; NAME_NT <br> NAME_NT -&gt; NAME <br> ENUMERATOR -&gt; NAME_NT EQUAL CONST_EXPR <br> CONST_EXPR -&gt; NUMBER <br> OPT_ENUM_LIST -&gt; LC ENUMERATOR_LIST RC</p> 
+ <p>从上面语法中，我们可以看到ENUM其实是关键字enum的标签，ENUMRATOR对应枚举类型中的变量定义，例如 a, b就对应于非终结符ENUMRATOR, 枚举类型中的变量赋值，例如 int c = 5, 对应非表达式：ENUMERATOR -&gt; NAME_NT EQUAL CONST_EXPR。</p> 
+ <p>我们看看解析器对枚举类型的解析流程： <br> 1: 读取关键字enum, 并返回标签ENUM. <br> 2: 通过表达式ENUM_NT -&gt; ENUM 进行reduce, 此时设置一个全局变量enumVal为0，这个全局变量的值将会在后面赋值给各个枚举变量。 <br> 3：读入变量名tag, 通过NAME_NT -&gt; NAME 进行reduce, 此时为tag创建一个Symbol对象，于是属性堆栈便有了一个对象： <br> <img src="img/1647416947315/1321623054631581006.jpg" alt="这里写图片描述" title=""> <br> 4: 读入左括号，返回标签LC, 读入变量a, 返回标签NAME,通过NAME_NT -&gt; NAME做reduce, 同时为变量a构建一个Symbol 对象，于是属性堆栈如下： <br> <img src="img/1647416947363/-368069026546294867.jpg" alt="这里写图片描述" title=""> <br> 5: 根据ENUMERATOR -&gt; .NAME_NT 做reduce,此时生成一个Specifier对象，Specifier 的类型设置为CONSTANT, 并将全局变量enumVal的值0，同时增加enumVal的值，让enumVal从0变为1。设置到Specifier对象里，同时将该对象加入变量a 对应Symbol的类型列表： <br> <img src="img/1647416947416/5355762032952677312.jpg" alt="这里写图片描述" title=""></p> 
+ <p>6: 根据表达式ENUMERATOR_LIST -&gt; .ENUMERATOR做reduce, 同时把堆栈顶部的Symbol对象出栈，由于该Symbol对象已经加入符号表，因此出栈不影响后面生成代码。</p> 
+ <p>7：读入逗号，返回标签COMMA, 读入变量名b,返回标签NAME, 通过NAME_NT -&gt; .NAME进行reduce的同时，为b生成一个Symbol对象。</p> 
+ <p>8: 根据表达式ENUMERATOR -&gt; .NAME_NT构造Specifier对象，将对象的constantValue域设置成enumVal, 此时enumVal的值是1： <br> <img src="img/1647416947473/3968054751596764217.jpg" alt="这里写图片描述" title=""></p> 
+ <p>9: 此时解析堆栈顶部的非终结符满足表达式：ENUMERATOR_LIST -&gt; .ENUMERATOR_LIST COMMA ENUMERATOR ,于是进行reduce,同时将当前顶部的Symbol出栈，并将左边的非终结符：ENUMERATOR_LIST压入解析堆栈</p> 
+ <p>10：读入逗号，读入变量c, 根据表达式NAME_NT -&gt; .NAME进行reduce, 同时生成一个Symbol对象。</p> 
+ <p>11： 读入等号，返回标签EQUAL, 读入等号后面的数字，返回标签NUMBER,通过表达式CONST_EXPR -&gt; NUMBER 进行reduce, 同时将数字压入到属性堆栈。</p> 
+ <p>12： 根据表达式ENUMERATOR -&gt; .NAME_NT EQUAL CONST_EXPR 进行reduce, 为前面生成的Symbol构造一个Specifier对象，同时把上一步压入属性堆栈的数值取出，赋值给全局表里enumVal, 并将变量的值设置到Specifier对象中，然后enumVal的值加1，使得它的值为6： <br> <img src="img/1647416947532/3756023247900053402.jpg" alt="这里写图片描述" title=""></p> 
+ <p>13: 再次根据表达式ENUMERATOR_LIST -&gt; .ENUMERATOR_LIST COMMA ENUMERATOR 进行reduce, 将属性堆栈顶部的Symbol对象出栈。并将ENUMERATOR_LIST压入解析堆栈。</p> 
+ <p>14： 读入逗号，读入变量d,返回标签NAME, 根据表达式NAME_NT -&gt; .NAME进行reduce,同时生成一个Symbol对象。</p> 
+ <p>15： 根据表达式ENUMERATOR -&gt; .NAME_NT, reduce时，生成一个Specifier对象，将它的constantValue的值设置成enumVal, 也就是6，同时让enumVal加1变成7： <br> <img src="img/1647416947594/-4300527396464523153.jpg" alt="这里写图片描述" title=""></p> 
+ <p>16: 再次根据表达式ENUMERATOR_LIST -&gt; .ENUMERATOR_LIST COMMA ENUMERATOR 进行reduce, 将属性堆栈顶部的Symbol出栈，同时在解析堆栈压入非终结符ENUMERATOR_LIST 。</p> 
+ <p>17：读入右括号}, 跟着使用表达式：OPT_ENUM_LIST -&gt; .LC ENUMERATOR_LIST RC 进行reduce, 然后再根据表达式：ENUM_SPECIFIER -&gt; .ENUM_NT NAME_NT OPT_ENUM_LIST 做reduce.</p> 
+ <p>18: 根据表达式TYPE_SPECIFIER -&gt; .ENUM_SPECIFIER做reduce,此时生成一个Specifier对象，它的类型是int: <br> <img src="img/1647416947651/4147879435271479010.jpg" alt="这里写图片描述" title=""> <br> 接着再根据表达式:TYPE_OR_CLASS -&gt; .TYPE_SPECIFIER, SPECIFIERS -&gt; .TYPE_OR_CLASS, OPT_SPECIFIERS -&gt; .SPECIFIERS 连续进行reduce, 将非终结符OPT_SPECIFIERS压入解析堆栈。</p> 
+ <p>19： 将右括号后面的x读入，返回标签NAME, 根据表达式 NEW_NAME -&gt; .NAME 进行reduce, 同时为变量x生成一个Symbol对象： <br> <img src="img/1647416947704/6573166659021683170.jpg" alt="这里写图片描述" title=""></p> 
+ <p>接着再根据表达式：VAR_DECL -&gt; .NEW_NAME，EXT_DECL -&gt; .VAR_DECL，EXT_DECL_LIST -&gt; .EXT_DECL 进行reduce, 把非终结符EXT_DECL_LIST压入解析堆栈。</p> 
+ <p>20： 读入最后的分号，得到标签SEMI, 根据表达式EXT_DEF -&gt; .OPT_SPECIFIERS EXT_DECL_LIST SEMI 进行reduce, 同时把Specifier对象添加到x变量对应的Symbol对象的类型列表中： <br> <img src="img/1647416947765/1856536303728649619.jpg" alt="这里写图片描述" title=""></p> 
+ <p>21： 根据表达式：EXT_DEF_LIST -&gt; .EXT_DEF_LIST EXT_DEF进行reduce,同时将堆栈上的Symbol对象出栈。然后全局非终结符被压入堆栈，此时解析流程结束，进入接收状态。</p> 
+ <p>具体的代码调试讲解流程请参看视频： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

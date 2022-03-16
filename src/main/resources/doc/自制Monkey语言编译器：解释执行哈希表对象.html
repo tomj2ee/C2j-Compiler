@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 自制Monkey语言编译器：解释执行哈希表对象</title>
+ <body> 自制Monkey语言编译器：解释执行哈希表对象</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>我们在上节完成了对哈希表对象的解析，这一节我们给编译器添加执行哈希表对象的功能，完成本节代码后，编译器能执行以下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">let</span>  <span class="hljs-built_in">hash</span> = {<!-- --><span class="hljs-string">'hello'</span>:<span class="hljs-string">'world'</span>}
+<span class="hljs-built_in">let</span> y = <span class="hljs-built_in">hash</span>[<span class="hljs-string">'hello'</span>]</code></pre> 
+ <p>当编译器执行上面代码后，变量y的值就是字符串’world’,接下来我们看相关代码的实现。我们需要在解释器中创建哈希表的符号对象，因此先添加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor (props) {
+         ....
+         <span class="hljs-comment">// change 1</span>
+        <span class="hljs-keyword">this</span>.HASH_OBJ = <span class="hljs-string">"Hash"</span>
+    }
+    ....
+}
+
+<span class="hljs-comment">// change 2</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Hash</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor(props) {
+        <span class="hljs-keyword">super</span>(props)
+        <span class="hljs-keyword">this</span>.keys = props.keys
+        <span class="hljs-keyword">this</span>.values = props.values
+    }
+
+    <span class="hljs-keyword">type</span> () {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.HASH_OBJ
+    }
+
+    inspect () {
+        <span class="hljs-keyword">var</span> s = <span class="hljs-string">"{"</span>
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-keyword">this</span>.keys.length; i++) {
+            <span class="hljs-keyword">var</span> pair = <span class="hljs-string">""</span> + <span class="hljs-keyword">this</span>.keys[i].inspect()
+            pair += <span class="hljs-string">":"</span>
+            pair += <span class="hljs-keyword">this</span>.values[i].inspect()
+            pair += <span class="hljs-string">","</span>
+            s += pair
+        }
+
+        s += <span class="hljs-string">"}"</span>
+        <span class="hljs-keyword">return</span> s
+    }
+}</code></pre> 
+ <p>紧接着我们添加解析执行哈希表的代表：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">eval (node) {
+    <span class="hljs-keyword">var</span> props = {}
+    <span class="hljs-keyword">switch</span> (node.type) {
+        ....
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"HashLiteral"</span>:
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.evalHashLiteral(node)
+        ....
+        }
+      ....
+}
+
+<span class="hljs-comment">// change 4</span>
+    evalHashLiteral(node) {
+        <span class="hljs-comment">/*
+        先递归的解析哈希表的key，然后解析它的value,对于如下类型的哈希表代码
+        let add = fn (x, y) { return x+y};
+        let byOne = fn (z) { return z+1;}
+        {add(1,2) : byOne(3)}
+        编译器先执行add(1,2)得到3，然后执行byOne(3)得到4
+        */</span>
+        <span class="hljs-keyword">var</span> props = {}
+        props.keys = []
+        props.values = []
+
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; node.keys.length; i++) {
+            <span class="hljs-keyword">var</span> key = <span class="hljs-keyword">this</span>.eval(node.keys[i])
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isError(key)) {
+                <span class="hljs-keyword">return</span> key
+            }
+
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.hashable(key) != <span class="hljs-keyword">true</span>) {
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Error(<span class="hljs-string">"unhashable type:"</span> +
+                    key.type())
+            }
+
+            <span class="hljs-keyword">var</span> <span class="hljs-keyword">value</span> = <span class="hljs-keyword">this</span>.eval(node.values[i])
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isError(<span class="hljs-keyword">value</span>)) {
+                <span class="hljs-keyword">return</span> <span class="hljs-keyword">value</span> 
+            }
+
+            props.keys.push(key)
+            props.values.push(<span class="hljs-keyword">value</span>)
+        }
+
+        <span class="hljs-keyword">var</span> hashObj = <span class="hljs-keyword">new</span> Hash(props)
+        console.log(<span class="hljs-string">"eval hash object: "</span> + hashObj.inspect())
+        <span class="hljs-keyword">return</span> hashObj
+    }
+
+    hashable(node) {
+        <span class="hljs-keyword">if</span> (node.type() == node.INTEGER_OBJ || 
+            node.type() == node.STRING_OBJ || 
+            node.type() == node.BOOLEAN_OBJ) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">true</span>
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>
+    }</code></pre> 
+ <p>当parser解析哈希表后会生成一个类型为HashLiteral的语法节点，该节点会传入到解析器的eval函数，我们在里面探测到节点类型为HashLiteral时，调用evalHashLiteral函数来进行解析，后者会从数组keys中取出每个元素，调用eval去解析哈希表对应的key，这个key可以是字符串，数字，变量，以及函数调用，但解析后得到的结果必须是整形，字符串和布尔型，这点检测会在hashable函数中进行，然后再从数组values中取出每个元素进行解析，得到对应的符号对象，把解析结果分别存入数组keys和values，最后用来构建一个Hash符号对象，上面的代码完成后，在编辑框中输入如下代码：</p> 
+ <p><img src="img/1647416420262/-3903528283676758953.jpg" alt="屏幕快照 2018-08-10 下午4.19.22.png" title=""></p> 
+ <p>点击底下的Parsing按钮，于是我们前面添加的代码就会执行，打开控制台就可以看到如下解析结果：</p> 
+ <pre class="prettyprint"><code class=" hljs livecodeserver">eval hash object: {<!-- --><span class="hljs-keyword">integer</span> <span class="hljs-operator">with</span> <span class="hljs-built_in">value</span>:<span class="hljs-number">3</span>:<span class="hljs-keyword">integer</span> <span class="hljs-operator">with</span> <span class="hljs-built_in">value</span>:<span class="hljs-number">4</span>,}</code></pre> 
+ <p>我们只实现了哈希表定义的解析，接下来我们需要实现哈希表的取值操作，也就是编译器能执行如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">let</span> bob = {<!-- --><span class="hljs-string">"name"</span> : <span class="hljs-string">"Bob"</span>, <span class="hljs-string">"age"</span> : <span class="hljs-number">90</span>}
+<span class="hljs-built_in">let</span> name = bob[<span class="hljs-string">"name"</span>]</code></pre> 
+ <p>上面代码执行后，变量name的值是”Bob”。我们看看实现该功能的代码如何编写：</p> 
+ <pre class="prettyprint"><code class=" hljs axapta">evalIndexExpression(left, <span class="hljs-keyword">index</span>) {
+        <span class="hljs-keyword">if</span> (left.type() === left.ARRAY_OBJ &amp;&amp; 
+            <span class="hljs-keyword">index</span>.type() === <span class="hljs-keyword">index</span>.INTEGER_OBJ) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.evalArrayIndexExpression(left, <span class="hljs-keyword">index</span>)
+        }
+        <span class="hljs-comment">// change 4</span>
+        <span class="hljs-keyword">if</span> (left.type() == left.HASH_OBJ) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.evalHashIndexExpression(left, <span class="hljs-keyword">index</span>)
+        }
+    }
+
+    <span class="hljs-comment">//change 5</span>
+    evalHashIndexExpression(hash, <span class="hljs-keyword">index</span>) {
+        <span class="hljs-keyword">if</span> (!<span class="hljs-keyword">this</span>.hashable(<span class="hljs-keyword">index</span>)) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-keyword">this</span>.Error(<span class="hljs-string">"unhashable type: "</span> + <span class="hljs-keyword">index</span>.type())
+        }
+
+        <span class="hljs-keyword">for</span> (var i = <span class="hljs-number">0</span>; i &lt; hash.keys.length; i++) {
+            <span class="hljs-keyword">if</span> (hash.keys[i].value == <span class="hljs-keyword">index</span>.value) {
+                console.log(<span class="hljs-string">"return hash value :"</span> + 
+                    hash.values[i])
+                <span class="hljs-keyword">return</span> hash.values[i]
+            }
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>
+    }</code></pre> 
+ <p>完成上面代码后，在编辑框中输入如下内容：</p> 
+ <p><img src="img/1647416420363/-4107635043875548850.jpg" alt="屏幕快照 2018-08-10 下午4.59.09.png" title=""></p> 
+ <p>然后点击底下”Parsing”按钮，在控制台中可以看到如下输出：</p> 
+ <pre class="prettyprint"><code class=" hljs applescript"><span class="hljs-keyword">the</span> index value <span class="hljs-keyword">is</span> :<span class="hljs-property">name</span> <span class="hljs-keyword">with</span> content : content <span class="hljs-keyword">of</span> <span class="hljs-type">string</span> <span class="hljs-keyword">is</span>: Bob</code></pre> 
+ <p>至此我们整个编译器的开发就结束了。我们的编译器所至此的Monkey语言其实与Javascript没有太大区别，它支持多种数据类型，例如整形，布尔值，数字，字符串，它还支持复杂数据结构，例如数组和哈希表，它具有高级语言特点，例如支持函数传参，函数闭包调用等，唯一遗憾的是它暂不支持面向对象编程的类定义，但只要你吃透了课程所介绍的编译原理，添加相应功能并没有太大难度，事实上当前Monkey语言编译器已经是一个完整可用的编程语言了，据说当今世界能做编译器的人最多坐满一个20平方的会议室，如果你走到这的话，会议室里为你留了一把椅子！</p> 
+ <p><a href="https://study.163.com/provider/7600199/course.htm?share=2&amp;shareId=7600199">更详细的讲解和代码调试演示过程，请点击链接</a></p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416420439/8766649981001998728.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

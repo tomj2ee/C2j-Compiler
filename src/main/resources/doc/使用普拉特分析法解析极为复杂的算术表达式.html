@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 使用普拉特分析法解析极为复杂的算术表达式</title>
+ <body> 使用普拉特分析法解析极为复杂的算术表达式</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <pre class="prettyprint"><code class=" hljs diff"><span class="hljs-change">!3*-5+(add(6,7)/foobar);</span></code></pre> 
+ <p>上面是一个很复杂的表达式，它的解析涉及到操作符优先级，例如乘法比加法优先级高，但括号优先级又比乘法优先级高，于此同时，在解析时，编译器需要把-和5结合解读成”-5”后才能参与运算，并且编译器要知道，add(6,7)是一个函数调用，它需要执行add(6,7),获得函数运行后返回值才能继续参与算术表达式的运算。</p> 
+ <p>算术表达式解析时要考虑的因素之多，使得它成为了编译原理中有关语法解析这部分的重点和难点，理解了算术表达式的解析算法，不但能执编译原理牛耳，而且解析算法的设计和实现充分展示了计算机科学中“分而治之”和“递归”的精妙核心原则。</p> 
+ <p>编译原理一大难点在于，它蕴含很多抽象的概念，而很多复杂算法的设计和实现有赖于对这些抽象概念的理解和把握，一方面概念的抽象性已经让人头大，再加上算法的复杂性，这就使得编译原理难上加难，让人望而却步。好在普拉特解析法有别与传统的编译原理语法解析算法，它简单，精致，易理解，我们看看普拉特解析法是如何巧妙的解决上面复杂算术表达式的解析的。</p> 
+ <p><em>前序表达式的解析</em></p> 
+ <p>在上面复杂的算术表达式中，有这样的组成部分： <br> !3 和 -5 <br> 这种成分的特点是，有一个操作符放在数字的前面，在运算整个算术式子时，需要先执行上面这些运算后，所得结果才能参与到整个算术式的运算中，我们把这种算术式成为前序表达式。我们看看普拉特解析法是如何解析上面的式子的，原理我们先不分析，先直接从代码实现开始。在MonkeyCompilerParser.js中，添加下面代码：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PrefixExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span> {<!-- --></span>
+  constructor(props) {
+    <span class="hljs-keyword">super</span>(props)
+    <span class="hljs-keyword">this</span>.token = props.token
+    <span class="hljs-keyword">this</span>.operator = props.operator
+    <span class="hljs-keyword">this</span>.right = props.expression
+    <span class="hljs-keyword">var</span> s = <span class="hljs-string">"("</span> + <span class="hljs-keyword">this</span>.operator + <span class="hljs-keyword">this</span>.right.getLiteral() + <span class="hljs-string">" )"</span>
+    <span class="hljs-keyword">this</span>.tokenLiteral = s
+  }
+}</code></pre> 
+ <p>上面代码定义的类就用来表示前序表达式，其中的operator就是表达式中的操作符，this.right对应的就是操作符后面的成分。接着我们在解析表中增加对前序表达式的解析函数：</p> 
+ <pre class="prettyprint"><code class=" hljs actionscript"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MonkeyCompilerParser</span> {<!-- --></span>
+    constructor(lexer) {
+    ....
+    <span class="hljs-keyword">this</span>.prefixParseFns[<span class="hljs-keyword">this</span>.lexer.BANG_SIGN] = 
+    <span class="hljs-keyword">this</span>.parsePrefixExpression
+    <span class="hljs-keyword">this</span>.prefixParseFns[<span class="hljs-keyword">this</span>.lexer.MINUS_SIGN] =
+    <span class="hljs-keyword">this</span>.parsePrefixExpression
+    ....
+    }
+    ....    
+}</code></pre> 
+ <p>this.lexer.BANG_SIGN 对应的就是表达式中的符号”!”,它表示做取反操作，this.lexer.MINUS_SIGN 对应表达式中的”-“，它表示做取负操作。上面代码表示，一旦语法解析器解析到符号”!”和”-“时，解析器便调用parsePrefixExpression函数进行处理，我们看看它的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">parsePrefixExpression(caller) {
+      var props = {}
+      props<span class="hljs-preprocessor">.token</span> = caller<span class="hljs-preprocessor">.curToken</span>
+      props<span class="hljs-preprocessor">.operator</span> = caller<span class="hljs-preprocessor">.curToken</span><span class="hljs-preprocessor">.getLiteral</span>()
+      caller<span class="hljs-preprocessor">.nextToken</span>()
+      props<span class="hljs-preprocessor">.expression</span> = caller<span class="hljs-preprocessor">.parseExpression</span>(caller<span class="hljs-preprocessor">.PREFIX</span>)
+
+      return new PrefixExpression(props)
+    }</code></pre> 
+ <p>解析函数在执行时，先记录前序操作符，也就是caller.curToken，这个变量对应的token其实就是符号”!”或者”-“。然后调用nextToken()把读取下一个token，在前序操作符后面跟着的是一个算术表达式，所以直接调用parseExpression进行解析就可以，当前我们把算术表达式简化为数字字符串或变量字符串，所以现在我们的解析器只支持”!”或”-“后面跟着一个数组或变量。</p> 
+ <p>在这里我们需要注意到一个定义上的循环重复。前序表达式是算术表达式的一部分，也就是后者包含了前者。然后前序表达式在去掉前序操作符后，接着的确是一个算术表达式，也就是说前序表达式包含了算术表达式，这就形成一个概念定义上的反复包含，我包含你与此同时你又包含我，这种成分的互相包含性是编译原理理解起来的难点所在。</p> 
+ <p>上面代码完成后，我们在编辑框中输入前序表达式进行解析： <br> <img src="img/1647416428015/-8029574608949057496.jpg" alt="这里写图片描述" title=""></p> 
+ <p>点击下方的parsing按钮后，在控制台里可以看到解析结果：</p> 
+ <p><img src="img/1647416428052/3328141615796229808.jpg" alt="这里写图片描述" title=""></p> 
+ <p>于是，添加上面代码后，语法解析去就能接受并理解前序表达式。</p> 
+ <p><em>中序表达式</em></p> 
+ <p>前序表达式的操作符在操作数的前面，对应的中序表达式意味着操作符在操作数的中间，例如：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-number">3</span>+<span class="hljs-number">5</span>；
+<span class="hljs-number">2</span><span class="hljs-variable">*3</span>;
+<span class="hljs-number">3</span><span class="hljs-variable">*!</span>foobar
+<span class="hljs-number">4</span>+<span class="hljs-number">5</span><span class="hljs-variable">*6</span></code></pre> 
+ <p>上面的式子中，操作符两边各有一个操作数，第三个表达式，操作符”*”右边甚至还包含了一个前序表达式。在解析中序表达式时，还得注意运算符的优先级，例如第4个表达式需要先做乘法再做加法，也就是说后半部分”5*6”需要当做一个整体看待。</p> 
+ <p>我们先在代码中定义符号的优先级和配置中序表达式的解析函数表：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">class MonkeyCompilerParser {
+    constructor(lexer) {
+    ...
+    this<span class="hljs-preprocessor">.initPrecedencesMap</span>()
+    this<span class="hljs-preprocessor">.registerInfixMap</span>()
+    }
+
+   initPrecedencesMap() {
+      this<span class="hljs-preprocessor">.precedencesMap</span> = {}
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.EQ</span>] = this<span class="hljs-preprocessor">.EQUALS</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.NOT</span>_EQ] = this<span class="hljs-preprocessor">.EQUALS</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.LT</span>] = this<span class="hljs-preprocessor">.LESSGREATER</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.GT</span>] = this<span class="hljs-preprocessor">.LESSGREATER</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.PLUS</span>_SIGN] = this<span class="hljs-preprocessor">.SUM</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.MINUS</span>_SIGN] = this<span class="hljs-preprocessor">.SUM</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.SLASH</span>] = this<span class="hljs-preprocessor">.PRODUCT</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.ASTERISK</span>] = this<span class="hljs-preprocessor">.PRODUCT</span>
+      this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.LEFT</span>_PARENT] = this<span class="hljs-preprocessor">.CALL</span>
+    }
+peekPrecedence() {
+      var p = this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.peekToken</span><span class="hljs-preprocessor">.getType</span>()]
+      if (p != undefined) {
+        return p
+      }
+
+      return this<span class="hljs-preprocessor">.LOWEST</span>
+    }
+
+     curPrecedence() {
+      var p = this<span class="hljs-preprocessor">.precedencesMap</span>[this<span class="hljs-preprocessor">.curToken</span><span class="hljs-preprocessor">.getType</span>()]
+      if (p != undefined) {
+        return p
+      }
+
+      return this<span class="hljs-preprocessor">.LOWEST</span>
+    }
+
+    registerInfixMap() {
+      this<span class="hljs-preprocessor">.infixParseFns</span> = {}
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.PLUS</span>_SIGN] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.MINUS</span>_SIGN] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.SLASH</span>] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.ASTERISK</span>] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.EQ</span>] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.NOT</span>_EQ] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.LT</span>] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+      this<span class="hljs-preprocessor">.infixParseFns</span>[this<span class="hljs-preprocessor">.lexer</span><span class="hljs-preprocessor">.GT</span>] = 
+      this<span class="hljs-preprocessor">.parseInfixExpression</span>
+    }</code></pre> 
+ <p>函数initPrecedenceMap用来把操作符的优先级设置到一个哈希表中，当解析器读取到不同的操作符时，它就根据当前读到的操作符到表里面查找对应的优先级，根据不同优先级采取不同操作。像前序分析一样，在解析中序表达式时，我们也配置一个解析调用表，当解读到中序操作符时，例如读取到符号“*， + ， -， ！=， &lt;, &gt;”时，解析器拿着这些符号到解析表infixParseFns去获取一个解析函数，然后直接执行。我们再看看这个函数的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">parseInfixExpression(caller, left) {
+      var props = {}
+      props<span class="hljs-preprocessor">.leftExpression</span> = left
+      props<span class="hljs-preprocessor">.token</span> = caller<span class="hljs-preprocessor">.curToken</span>
+      props<span class="hljs-preprocessor">.operator</span> = caller<span class="hljs-preprocessor">.curToken</span><span class="hljs-preprocessor">.getLiteral</span>()
+
+      var precedence = caller<span class="hljs-preprocessor">.curPrecedence</span>()
+      caller<span class="hljs-preprocessor">.nextToken</span>()
+      props<span class="hljs-preprocessor">.rightExpression</span> = caller<span class="hljs-preprocessor">.parseExpression</span>(precedence)
+      return new InfixExpression(props)
+    }</code></pre> 
+ <p>上面的函数调用时，需要传入一个参数叫left,可以猜测，这个left就是操作符左边部分，而right对应的就是右边部分，对于表达式”2+3”,上面代码中的leftExpression对应的就是表达式”2”,代码中的rightExpression对应加号后面的表达式”3”。</p> 
+ <p>接着我们看看解析流程的改变：</p> 
+ <pre class="prettyprint"><code class=" hljs coffeescript">parseExpression(precedence) {
+        <span class="hljs-reserved">var</span> prefix = <span class="hljs-keyword">this</span>.prefixParseFns[<span class="hljs-keyword">this</span>.curToken.getType()]
+        <span class="hljs-keyword">if</span> (prefix === <span class="hljs-literal">null</span>) {
+            <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"no parsing function found for token "</span> + 
+              <span class="hljs-keyword">this</span>.curToken.getLiteral())
+            <span class="hljs-keyword">return</span> <span class="hljs-literal">null</span>
+        }
+
+        <span class="hljs-reserved">var</span> leftExp = prefix(<span class="hljs-keyword">this</span>)
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.peekTokenIs(<span class="hljs-keyword">this</span>.lexer.SEMICOLON) != <span class="hljs-literal">true</span> &amp;&amp;
+            precedence &lt; <span class="hljs-keyword">this</span>.peekPrecedence()) {
+          <span class="hljs-reserved">var</span> infix = <span class="hljs-keyword">this</span>.infixParseFns[<span class="hljs-keyword">this</span>.peekToken.getType()]
+          <span class="hljs-keyword">if</span> (infix === <span class="hljs-literal">null</span>) {
+            <span class="hljs-keyword">return</span> leftExp
+          }
+
+          <span class="hljs-keyword">this</span>.nextToken()
+          leftExp = infix(<span class="hljs-keyword">this</span>, leftExp)
+        }
+
+        <span class="hljs-keyword">return</span> leftExp
+    }</code></pre> 
+ <p>parseExpression被调用来解析解析表达式时，它先从前序解析表中，用当前读取的token查找一个解析函数来解析表达式的前半部分，此时符号的优先级开始发挥作用，例如表达式”4+5*6”，在解析时，”4”会先解析，解析后对应的就是leftExp，由于4后面跟着+而不是分号，因此会进入if部分，此时当前的token对应的就是符号”+”，于是在中序解析表中，用符号”+”找到一个解析函数，也就是函数parseInfixExpression,然后执行它，并且把加号左边的表达式”4”当做参数传入，在parseInfixExpression中，它先在符号优先级表中查找加号的优先级，并把优先级当做参数，再次调用parseExpression来解析加号后面的表达式。</p> 
+ <p>在执行parseExpression时，它会把乘号左边的5解析成一个表达式，也就对应变量leftExp。此时5后面跟着的不是分号而是乘号，代码调用peekPrecedence()在操作符优先级表中查找乘号的优先级，然后跟传进来的加号优先级比较，乘号的优先级肯定比加号优先级大，于是进入if部分，接着从中序表达式解析表中找到解析函数parseInfixExpression，执行它后，把乘号后面的数字6解析成一个表达式。注意到，此时代码在调用parseInfixExpression时，把leftExp当做参数传入，而leftExp对应的是表达式5，于是表达式”5”加上符号”*”以及表达式”6”就被结合成一个整体，这就跟算术法则保持一致，也就是解析器会先处理”5*6”,再把所得结果与前面的表达式”4”做加法运算。</p> 
+ <p>当完成上面代码后，在编辑框中输入以下内容：</p> 
+ <p><img src="img/1647416428149/-1839771576304160728.jpg" alt="这里写图片描述" title=""></p> 
+ <p>点击解析后，在控制台中输出结果如下：</p> 
+ <p><img src="img/1647416428204/-63002069959038158.jpg" alt="这里写图片描述" title=""></p> 
+ <p>我们看到，在解析结果中，”5*6”确实是组合成一个整体来被解读的。本文只讲解了代码的设计和运行逻辑，他们的理解需要结合调试演示才好深入理解，请点击下面的链接观看讲解视频：</p> 
+ <p><a href="http://study.163.com/provider-search?keyword=Coding%E8%BF%AA%E6%96%AF%E5%B0%BC">更详细的讲解和代码调试演示过程，请点击链接</a></p> 
+ <p>下一节我们将深入探讨普拉特解析法的算法原理，并证明为什么普拉特解析法是行之有效的语法解析算法。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416428271/4502222184770185079.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

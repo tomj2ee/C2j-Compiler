@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> LR(1) 有限状态机的压缩</title>
+ <body> LR(1) 有限状态机的压缩</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程：</p> 
+ <p><a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+ <p>上一节描述的状态机构造算法，有一步骤有些问题，特此先进行更正，有问题的步骤是这样的，在计算look ahead 集合的时候，需要把β 和 C 首尾相连后再计算First 集合，特此更正，具体算法步骤，我们再过一遍。</p> 
+ <p>假定表达式形式及其look ahead 集合形式如下：</p> 
+ <p>[S -&gt; a .x β, C]</p> 
+ <p>x 是非终结符， 其对应的表达式如下：</p> 
+ <p>x -&gt; . r</p> 
+ <p>那么上面表达式的look ahead 集合则通过公式： <br> First(β C) </p> 
+ <p>计算。举个具体例子：</p> 
+ <p>[S -&gt; a .x β, C] <br> [S -&gt; .e , {EOI}] </p> 
+ <p>此时 a 对应的部分为null, . x 对应部分为 . e, β 对应部分为 null, C 对应的集合是 {EOI}</p> 
+ <p>e 对应的表达式为： <br> [x -&gt; . r , First(β C)] <br> [e -&gt; . e+t , First(null EOI)] <br> [e -&gt; . t , First(null, EOI)]</p> 
+ <p>由于First(null, EOI) = {EOI}, 由此我们生成两个新的表达式：</p> 
+ <p>[e -&gt; . e+t , {EOI}] <br> [e -&gt; . t , {EOI}]</p> 
+ <p>根据新生成的表达式继续构造新的表达式： <br> [S -&gt; a .x β, C] <br> [e -&gt; .e +t, {EOI}]</p> 
+ <p>此时， a 对应的部分是null, . x 对应 . e, β对应 + t,于是First(β C) = First(+ t EOI) , 由于 + 是终结符，所以First(+ t EOI) = {+}, 由于e 对应的表达式有： <br> e -&gt; . e + t <br> e -&gt; . t <br> 于是我们又有新的表达式: <br> [e -&gt; .e + t, {+}] <br> [e -&gt; . t , {+}]</p> 
+ <p>上面的算法反复进行，直到没有新的表达式生成为止，具体步骤后面通过代码向大家演示。</p> 
+ <p>LR(1) 状态机的压缩</p> 
+ <p>通过上面算法构造的状态机，我们称之为LR(1)状态机，该状态机最显著的特点是，它的大小是我们最早构建的LR状态机的两倍。我们要开发的C语言编译器，对应的LR状态机的节点是287个，如果构造C语言对应的LR(1)状态机的话，那么节点数目则将近600多个，这样的话，状态机体型过于庞大，不但占用内存，而且会严重拖低效率。</p> 
+ <p>由此，有必要对LR(1)状态机进行压缩，使得它的体积变小，同时原有功能不受影响。如果大家拿到代码，运行后可以发现，有很多状态节点，他们的唯一的区别在于，表达式以及表达式中，点的位置是一样的，唯一不同的是，两个节点中，表达式对应的look ahead 集合不一样，这样的节点，我们就可以将他们结合起来。举个例子，运行上面的算法后，在生成的状态机中，有两个节点情况如下：</p> 
+ <p>State Number: 1 <br> EXPR -&gt; TERM .look ahead set: { EOI } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { EOI } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { TIMES } <br> EXPR -&gt; TERM .look ahead set: { PLUS } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { PLUS }</p> 
+ <p>State Number: 8 <br> EXPR -&gt; TERM .look ahead set: { RIGHT_PARENT } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { RIGHT_PARENT } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { TIMES } <br> EXPR -&gt; TERM .look ahead set: { PLUS } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { PLUS }</p> 
+ <p>大家注意看上面两个状态节点，点1和点8是通过前面算法构建的两个节点，这两个节点，表达式相同，并且点的位置也相同，唯一不同的就是表达式对应的look ahead 集合， <br> 因此，像这样的两个点，我们就可以将他们结合成一个节点，如下：</p> 
+ <p>EXPR -&gt; TERM .look ahead set: { EOI } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { EOI } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { TIMES } <br> EXPR -&gt; TERM .look ahead set: { PLUS } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { PLUS } <br> EXPR -&gt; TERM .look ahead set: { RIGHT_PARENT } <br> TERM -&gt; TERM .TIMES FACTOR look ahead set: { RIGHT_PARENT }</p> 
+ <p>我们看到，结合后的节点，只不过是把两个节点表达式结合在一起而已。</p> 
+ <p>通过上面的节点压缩后，整个状态机的体积能够被压缩一半，同时保证状态机的效率得到提高。</p> 
+ <p>接下来，我们结合代码看看整个算法如何实现。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> C语言变量赋值语句的语法解析算法实现</title>
+ <body> C语言变量赋值语句的语法解析算法实现</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>本篇文章是java开发编译器系列课程的文档，有兴趣的朋友可关注网易云课堂的视频内容： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">自己动手用java开发编译器</a></p> 
+ <p>经过一系列的算法摸索后，我们终于要进入 C 语言编译器开发的进程，这一节，我们的目的是实现C语言的变量声明语句的解析算法，要解析的语句形式如下：</p> 
+ <p>long int *x, y;</p> 
+ <p>完成变量声明的解析后，我们便进入符号表和类型系统的研究。</p> 
+ <h3 id="自底向上的语法解析算法中shiftreduce算法步骤解析">自底向上的语法解析算法中,shift/reduce算法步骤解析</h3> 
+ <p>我们C语言编译器所采用的语法解析算法将依上上一章的自底向上语法解析算法，在上一章的算法中，我们通过形成语法解析状态机，进而构造语法解析跳转表，从而实现了语法解析的自动化，我们要实现的C语言编译器基于上一章的代码，只不过把语法规则换成C语言的语法而已。</p> 
+ <p>在前面的算法拆解中，构造了状态机后，某些节点会存在shift/reduce矛盾，这个矛盾的处理办法，我在前面的讲解中有些问题，这里进一步澄清一下。</p> 
+ <ol>
+  <li>[S -&gt; a .r B, C] </li>
+  <li>r -&gt; r1 .</li>
+ </ol> 
+ <p>r是一个非终结符，a, B是0个或多个终结符或非终结符的集合。</p> 
+ <p>对于上面的两个表达式，如果当前语法解析到表达式2，而且符号”.”处于表达式2的末尾，那么当解析器接收到下一个字符时，应对采取shift操作还是reduce操作呢？如果要采取reduce操作，那么r-&gt; r1 reduce后，解析器进入到表达式1所代表的节点，如果解析进程要能够顺利的进行下去的话，当前的输入字符必须符合 B 的规定，也就是当前输入字符必须要属于FIRST(B).</p> 
+ <p>具体来说，假定 B 对应一个终结符’+’,也就是： <br> S -&gt; a .r + <br> 那么如果当前输入字符正好是’+’的话，那么当解析器处于表达式2时，做reduce操作是合理的，如果当前输入字符不是’+’, 那么如果做reduce操作的话，解析就无法进行下去了，因此做shift操作就是合理选择。</p> 
+ <p>由此表达式2的 look ahead集合就是 FIRST(B), 如果B是空，那么2的look ahead集合就等于C, 如果B是nullable的，那么表达式2的look ahead集合就是 FIRST(B) <span class="MathJax_Preview"></span><span class="MathJax" id="MathJax-Element-14-Frame"> <span class="math" id="MathJax-Span-120" style="width: 0.803em; display: inline-block;"><span style="display: inline-block; position: relative; width: 0.643em; height: 0px; font-size: 125%;"><span style="position: absolute; clip: rect(1.869em 1000em 2.776em -0.424em); top: -2.557em; left: 0.003em;"><span class="mrow" id="MathJax-Span-121"><span class="mo" id="MathJax-Span-122" style="font-family: STIXGeneral-Regular;">∪</span></span><span style="display: inline-block; width: 0px; height: 2.563em;"></span></span></span><span style="border-left-width: 0.003em; border-left-style: solid; display: inline-block; overflow: hidden; width: 0px; height: 0.87em; vertical-align: -0.13em;"></span></span> </span><script type="math/tex" id="MathJax-Element-14">\cup</script> C.</p> 
+ <h2 id="c语言变量声明语句的解析语法">C语言变量声明语句的解析语法：</h2> 
+ <ol>
+  <li><p>program -&gt; ext_def_list</p></li>
+  <li><p>ext_def_list -&gt; ext_def_list ext_def</p></li>
+  <li><p>ext_def -&gt; opt_specifiers ext_dec_list SEMI <br> | opt_specifiers SEMI</p></li>
+  <li><p>ext_decl_list -&gt; ext_decl <br> | ext_decl_list COMMA ext_decl</p></li>
+  <li><p>ext_decl -&gt; var_decl</p></li>
+  <li><p>opt_specifiers -&gt; specifiers <br> | (EMPTY) </p></li>
+  <li><p>specifiers -&gt; type_or_class <br> | specifiers type_or_class</p></li>
+  <li><p>type_or_class -&gt; type_specifier</p></li>
+  <li><p>type_specifier -&gt; TYPE</p></li>
+  <li><p>new_name -&gt; NAME</p></li>
+  <li><p>var_decl -&gt; new_name <br> | star var_decl</p></li>
+ </ol> 
+ <p>上面语法中，大写的表示终结符， TYPE是C语言数据类型关键字例如long, int , float 等对应的token. NAME是所有C语言变量名的token, STAR代表符号’*’. 接下来我们看看语句: <br> long int *x, y; <br> 的解析流程。</p> 
+ <p>在解析开始时，我们先把ext_def_list压入堆栈。然后做一次shift操作，把long对应的token TYPE读入并压入堆栈： <br> ext_def_list TYPE</p> 
+ <p>通过 type_specifier -&gt; TYPE 进行reduce:</p> 
+ <p>ext_def_list type_specifier </p> 
+ <p>通过 type_or_class -&gt; type_specifier 进行reduce:</p> 
+ <p>ext_def_list type_or_class</p> 
+ <p>通过specifiers -&gt; type_or_class 进行reduce:</p> 
+ <p>ext_def_list specifier</p> 
+ <p>接着把int对应的token TYPE shift 进来：</p> 
+ <p>ext_def_list specifier TYPE</p> 
+ <p>通过 type_specifier -&gt; TYPE 进行reduce:</p> 
+ <p>ext_def_list specifiers type_specifier</p> 
+ <p>通过 type_or_class -&gt; type_specifier 进行reduce:</p> 
+ <p>ext_def_list specifiers type_or_class</p> 
+ <p>通过 specifiers -&gt; specifiers type_or_class 进行reduce,于是解析堆栈头部的两个非终结符就去掉了：</p> 
+ <p>ext_def_list specifiers</p> 
+ <p>通过 opt_specifiers -&gt; specifiers 进行 reduce:</p> 
+ <p>ext_def_list opt_specifiers</p> 
+ <p>接着分别把* 和 x 对应的token shift 到解析堆栈中：</p> 
+ <p>ext_def_list opt_specifiers STAR NAME</p> 
+ <p>通过 new_name -&gt; NAME 进行 reduce:</p> 
+ <p>ext_def_list opt_specifiers STAR new_name</p> 
+ <p>通过 var_decl -&gt; new_name 进行reduce:</p> 
+ <p>ext_def_list opt_specifiers STAR var_decl</p> 
+ <p>再通过 var_decl -&gt; STAR var_decl 进行reduce:</p> 
+ <p>ext_def_list opt_specifiers var_decl</p> 
+ <p>通过 ext_decl -&gt; var_decl 进行reduce:</p> 
+ <p>ext_def_list opt_specifiers ext_decl</p> 
+ <p>再通过 ext_decl_list -&gt; ext_decl reduce一次：</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list</p> 
+ <p>接着把 , y两个符号对应的token shift到解析堆栈中：</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list COMMA NAME</p> 
+ <p>通过 new_name -&gt; NAME 进行 reduce:</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list COMMA new_name</p> 
+ <p>根据 var_decl -&gt; new_name 进行 reduce:</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list COMMA var_decl</p> 
+ <p>通过 ext_decl -&gt; var_decl 进行reduce:</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list COMMA ext_decl</p> 
+ <p>通过 ext_decl_list -&gt; ext_decl_list COMMA ext_decl 进行 reduce:</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list</p> 
+ <p>把 ; 对应的终结符 SEMI shift到解析堆栈：</p> 
+ <p>ext_def_list opt_specifiers ext_decl_list SEMI</p> 
+ <p>通过 ext_def -&gt; opt_specifiers ext_list SEMI 进行reduce, 这样堆栈的头三个元素就出栈了：</p> 
+ <p>ext_def_list ext_def</p> 
+ <p>通过 ext_def_list -&gt; ext_def_list dex_def 进行reduce:</p> 
+ <p>ext_def_list</p> 
+ <p>再通过 program -&gt; ext_def_list 进行 reduce:</p> 
+ <p>program</p> 
+ <p>由于全局非终结符被压入堆栈，由此解析结束，语句能被我们的语法所接受，阅读博客的朋友可以通过视频查看算法的实现和调试过程。</p> 
+ <p>在解析过程中，reduce进行了之后，便是代码生成的适当时机，代码生成除了将高级语言转换为低级语言外，还有很重要的一部是根据语言的类型系统创建符号表。我们写完代码后，设置断点，单步调试，查看变量值，这些功能无不需要符号表的支持。</p> 
+ <p>符号表和类型系统是编译原理中，极具技术丰厚度，难度，和智识趣味的一部分，他们将是下几节我们深入讨论的内容。</p> 
+ <p>走到这里，大家是否觉得，编译原理是一门博大精深的逻辑知识系统。随着学习和研究的不断推进，我越来越为编译原理各种算法的巧妙性，完备性所折服，不得不感慨，那些大牛前辈长得是什么大脑，怎么会构建出如此精妙逻辑系统，站在这些巨人的肩膀上，扩展了我们的知识视野，也体会到了“风物长宜放眼量”的愉悦。</p> 
+ <p>说到知识体系和方法论，我所认识也是最佩服的一个大牛就是比特币首富李笑来，他构建了一套行之有效的方法论，能帮我们实现价值提升，挣更多的钱，下面是他的方法论课程，叫通往财富自由之路，也就199一年，不到200块钱，获得财富自由的心法，不值得吗！</p> 
+ <p><img src="img/1647416925957/8130885781514087979.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

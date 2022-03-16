@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> C语言的符号表和类型系统1</title>
+ <body> C语言的符号表和类型系统1</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+ <p>绝大多数编程语言都可以分成三部分：声明(declaration)，表达式(expression)，语句模块(statement). 每部分都有专门的语法来定义，在上一节中，我们通过语法定义了C语言的变量声明，并通过解析器成功实现了变量声明的语法解析。</p> 
+ <p>对于C语言中的一段函数代码，便可分割成对应于上面所说的三部分。函数声明中的函数名，返回值和输入参数例如： <br> int fun(int arg1, int arg2); <br> 就可以对应于上面三部分中的声明部分。函数的主体则对应于表达式和语句模块部分。</p> 
+ <p>在对代码的声明部分进行语法解析时，我们需要构建一种数据结构，以便于支持具体的代码生成，这种数据结构，就是我们接下来要研究的符号表。符号表本质上是一种数据库，用来存储代码中的变量，函数调用等相关信息。该表以key-value 的方式存储数据。变量和函数的名字就用来对应表中的key部分，value部分包含一系列信息，例如变量的类型，所占据的字节长度，或是函数的返回值。当我们的解析器读取源代码，遇到声明部分时，便给符号表添加一条记录，如果变量或函数脱离了它的作用范围时，便将他们对应的记录从表中删除。例如：</p> 
+ <p>{ <br> int variable = 0; <br> }</p> 
+ <p>在上面代码中，进入大括号时，解析器遇到变量的声明，于是便把变量variable 的相关信息写入符号表。当解析器读取到右括号时，便把variable在符号表中的信息给删除，因为出了variable的作用范围只在括号之内。</p> 
+ <p>符号表还可以用来存储类型定义(typedef)和常量声明，在词法解析的过程，词法解析器还需要和符号表交互，用于确定一个变量名是否属于一种类型定义，例如：</p> 
+ <p>typedef char SingleByte</p> 
+ <p>当词法解析器读取SingleByte这个字符串后，会在符号表中查询这个字符串所对应的记录，由于每个记录都有一个标志位，用来表明该字符串是否属于变量声明，于是词法解析器从记录中读取这个标志位，发现SingleByte对应的标志位被设置为1，因此词法解析器就不会把SingleByte当做普通的变量处理，而是当做关键字来处理。</p> 
+ <p>符号表作为一种数据库，它必须具备以下特点：</p> 
+ <ol>
+  <li>速度。由于符号表会被编译器频繁写入和读取，因此记录的写入，查询速度必须足够快。为了保证速度，整个符号表会直接存储在内存中，由此符号表的设计必须仔细考虑内存消耗。</li>
+  <li>维护性。符号表几乎是编译器中，最复杂的数据结构。它的设计必须灵活可扩展，使得除了编译器外，其他应用程序或模块也能良好的访问符号表。</li>
+  <li>灵活性。C语言的变量声明系统很复杂，例如它允许类型关键字的相互组合等(long int, long doube *…), 因此符号表必须能支持各种不同的变量声明方式。</li>
+  <li>重复性支持。由于对大多数编程语言而言，在不同的间套下，重复的变量名是允许的：</li>
+ </ol> 
+ <p>int variable = 0; <br> { <br> int variable = 1; <br> }</p> 
+ <p>例如上面例子中，两个变量虽然拥有相同的名字，但却是合法的。在大括号内的变量会覆盖(shadow) 外层同名变量。因此符号表必须支持同一个key, 但却可以映射到不同的value.</p> 
+ <ol>
+  <li>易删除。由于变量可能随时超出作用范围，因此一旦语法解析器发现变量失效后，必须能快速的将其从符号表中删除。</li>
+ </ol> 
+ <h3 id="符号表的数据结构设计">符号表的数据结构设计</h3> 
+ <p>为了应对上面的需求，我们可通过哈希表来实现符号表的设计。由于哈希表的插入和删除平均耗时是O(1), 因此它能满足快速的插入和删除这一要求，如果遇到作用域不同的同名变量，他们必然被哈希到同一个位置，那么我们可以用链表把哈希到同一个地方的记录串联起来，这样就解决了支持重复性的问题。举个具体例子：</p> 
+ <p>int Godot; <br> void waiting(int vladmir, int estragon) { <br> int pozzo; <br> while (condition) { <br> int pozzo, lucky; <br> } <br> }</p> 
+ <p>在上面的代码中，Godto 和 waiting是属于第一层的变量，函数waiting的参数vladmir, estragon ,和内部变量 pozzo 属于第二层的变量。while 体内的变量 pozzo, 和 lucky 属于第三层的变量，而且两个pozzo是同名变量。</p> 
+ <p>于是通过链式哈希表来实现符号表的过程如下：</p> 
+ <p><img src="img/1647416951503/-6293333638767621096.jpg" alt="这里写图片描述" title=""></p> 
+ <p>所有的变量都存储到哈希表中，同名变量pozzo被哈希到同一个位置，所有用队列连接起来，由于我们使用变量名做哈希，因此不同变量名也有可能哈希到同一个地方，假定vladmir哈希到与pozzo相同的地方，所以vladmir也在同一个队列中。</p> 
+ <p>在头顶还有一个队列，用来存储不同层次的变量起始指针，例如Godot, waiting 属于第一层次的变量，因此头部队列的第一个元素存储指针，指向第一个变量Godot, 然后Godot自己又引出一个指针，指向同一层的另一个变量wait, 由此，同一层的变量实际上是通过一个队列连接起来，这个队列的头指针就存储在Cross link 列表中。</p> 
+ <p>第二层三个变量vladmir, estragon, pozzo , 也组成一个队列：vladmir-&gt;estragon-&gt;pozzo, 这个队列的头指针就存放在cross link列表的第二个元素。第三层以此类推。</p> 
+ <p>符号表中的一个记录，我们可以用如下java代码表示（symbol.java)：</p> 
+ <pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Symbol</span> {<!-- --></span>
+    String  name;
+    String  rname;
+
+    <span class="hljs-keyword">int</span>       level;  <span class="hljs-comment">//变量的层次</span>
+    <span class="hljs-keyword">boolean</span>   implicit;  <span class="hljs-comment">//是否是匿名变量</span>
+    <span class="hljs-keyword">boolean</span>   duplicate;   <span class="hljs-comment">//是否是同名变量</span>
+
+    Symbol    args;   <span class="hljs-comment">//如果该符号对应的是函数名,那么args指向函数的输入参数符号列表</span>
+
+    Symbol    next;  <span class="hljs-comment">//指向下一个同层次的变量符号</span>
+}</code></pre> 
+ <p>哈希表中的记录，我们用SymbolEntry来表示，代码如下：</p> 
+ <pre class="prettyprint"><code class="language-java hljs ">
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SymbolEntry</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> Symbol symbol;
+    <span class="hljs-keyword">private</span> SymbolEntry prev, next;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">SymbolEntry</span>(Symbol sym) {
+        <span class="hljs-keyword">this</span>.symbol = sym;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setPrev</span>(SymbolEntry prev) {
+        <span class="hljs-keyword">this</span>.prev = prev;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setNext</span>(SymbolEntry next) {
+        <span class="hljs-keyword">this</span>.next = next;
+    }
+
+    <span class="hljs-keyword">public</span> SymbolEntry <span class="hljs-title">getPrev</span>() {
+        <span class="hljs-keyword">return</span> prev;
+    }
+
+    <span class="hljs-keyword">public</span> SymbolEntry <span class="hljs-title">getNext</span>() {
+        <span class="hljs-keyword">return</span> next;
+    }
+
+}
+</code></pre> 
+ <p>用于解决哈希冲突的链表是双向链表，所以SymbolEntry中有两个对象指针，prev 和 next, 分别指向当前符号的前缀和后缀，这种双向链表的设计有利于在队列中对元素进行删除。</p> 
+ <h3 id="类型系统">类型系统</h3> 
+ <p>接下来的问题是，如何表示变量的类型，如果语言足够简单，那么类型可以用一些整形数组来表示，例如0表示整数，1表示浮点数。指针类型，例如int* 可以用数值3来表示。这种类型系统，称之为限制行类型系统，因为这种方法只能表示有限中类型。</p> 
+ <p>像C语言这种拥有复杂类型表示方式的语言，上面的方法就捉襟见肘了。因此要表示C语言的类型系统，必须设计足够灵活的数据结构。C语言的变量声明包括两部分，一部分叫说明符(specifier),这部分对应各种数据类型关键字，int long, extern, struct等。另一部分叫修饰符，由变量名以及星号，中括号组成，例如 *a, a[10] 等。</p> 
+ <p>说明符部分是有限的，毕竟关键字的数量有限，因此关键字的组合方式也有限，但是，修饰符部分就相当灵活，例如星号*就可以有多个，*和[]又可以相互组合，因此C语言的类型必须由两部分组成，一部分表示说明符部分，另一部分表示修饰符部分。整个类型系统就由包含这两种结构的链表构成。例如声明语句： <br> short in Quasimodo; <br> long *Gringoire;</p> 
+ <p>他们的类型系统如下： <br> <img src="img/1647416951933/-4636239978012189201.jpg" alt="这里写图片描述" title=""></p> 
+ <p>类型系统中，说明符部分只有一个，而修饰符部分可以有多个，当然也可以没有，同时，说明符始终放在链表的末尾。通过把链表顺序念下来，就可以读出变量声明语句，例如对于第二个队列，顺序读下来就是：Gringoire is a pointer to long.</p> 
+ <p>如果是一个长整形数组，例如 long Coppenole[10],类型系统的表示如下： <br> <img src="img/1647416951996/8789807136174728334.jpg" alt="这里写图片描述" title=""></p> 
+ <p>一个指向10个长整形元素的数组指针，long (*Frollo)[10],类型系统表示如下： <br> <img src="img/1647416952047/7973293481279132330.jpg" alt="这里写图片描述" title=""></p> 
+ <p>这种类型系统有个显著特点是，容易促进代码生成。后面我们可以看到这个效果。</p> 
+ <h3 id="类型系统的实现">类型系统的实现</h3> 
+ <p>修饰符的实现比较简单，代码如下：</p> 
+ <pre class="prettyprint"><code class="language-java hljs ">
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Declarator</span> {<!-- --></span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  POINTER = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  ARRAY = <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  FUNCTION = <span class="hljs-number">2</span>;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span>  declareType = POINTER;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span>  numberOfElements = <span class="hljs-number">0</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">Declarator</span>(<span class="hljs-keyword">int</span> type) {
+        <span class="hljs-keyword">if</span> (type &lt; POINTER) {
+            declareType = POINTER;
+        } 
+
+        <span class="hljs-keyword">if</span> (type &gt; FUNCTION) {
+            declareType = FUNCTION;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setElementNum</span>(<span class="hljs-keyword">int</span> num) {
+        <span class="hljs-keyword">if</span> (num &lt; <span class="hljs-number">0</span>) {
+            numberOfElements = <span class="hljs-number">0</span>;
+        } <span class="hljs-keyword">else</span> {
+            numberOfElements = num;
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getType</span>() {
+        <span class="hljs-keyword">return</span> declareType ;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getElementNum</span>() {
+        <span class="hljs-keyword">return</span> numberOfElements;
+    }
+}
+</code></pre> 
+ <p>上面代码中，declareType 用来表示要修饰的变量是一个指针，数组，还是函数，如果是数组的话，numberOfElements 这个成员用来表示数组含有多少个元素。</p> 
+ <p>说明符的实现稍微麻烦些，代码如下：</p> 
+ <pre class="prettyprint"><code class="language-java hljs ">
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Specifier</span> {<!-- --></span>
+    <span class="hljs-comment">//type</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  INT = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  CHAR = <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  VOID = <span class="hljs-number">2</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  STRUCTURE = <span class="hljs-number">3</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  LABEL = <span class="hljs-number">4</span>;
+
+    <span class="hljs-comment">//storage</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  FIXED = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  REGISTER = <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  AUTO = <span class="hljs-number">2</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  TYPEDEF = <span class="hljs-number">3</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  CONSTANT = <span class="hljs-number">4</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  NO_OCLASS = <span class="hljs-number">0</span>;  <span class="hljs-comment">//如果内存类型是auto, 那么存储类型就是NO_OCLASS</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  PUBLIC = <span class="hljs-number">1</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  PRIVATE = <span class="hljs-number">2</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  EXTERN = <span class="hljs-number">3</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span>  COMMON = <span class="hljs-number">4</span>;
+
+    <span class="hljs-keyword">private</span>  <span class="hljs-keyword">int</span>  basicType;
+    <span class="hljs-keyword">public</span>   <span class="hljs-keyword">void</span> <span class="hljs-title">setType</span>(<span class="hljs-keyword">int</span> type) {
+        basicType = type;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getType</span>() {
+        <span class="hljs-keyword">return</span> basicType;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> storageClass;
+    <span class="hljs-keyword">public</span>  <span class="hljs-keyword">void</span> <span class="hljs-title">setStorageClass</span>(<span class="hljs-keyword">int</span> s) {
+        storageClass = s;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getStorageClass</span>() {
+        <span class="hljs-keyword">return</span> storageClass;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> outputClass;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setOutputClass</span>(<span class="hljs-keyword">int</span> c) {
+        outputClass = c;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getOutputClass</span>() {
+        <span class="hljs-keyword">return</span> outputClass;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> isLong = <span class="hljs-keyword">false</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setLong</span>(<span class="hljs-keyword">boolean</span> l) {
+        isLong = l;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">getLong</span>() {
+        <span class="hljs-keyword">return</span> isLong;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> isSigned = <span class="hljs-keyword">false</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setSign</span>(<span class="hljs-keyword">boolean</span> signed) {
+        isSigned = signed;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isSign</span>() {
+        <span class="hljs-keyword">return</span> isSigned;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> isStatic = <span class="hljs-keyword">false</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setStatic</span>(<span class="hljs-keyword">boolean</span> s) {
+        isStatic = s;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isStatic</span>() {
+        <span class="hljs-keyword">return</span> isStatic;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> isExternal = <span class="hljs-keyword">false</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setExternal</span>(<span class="hljs-keyword">boolean</span> e) {
+        isExternal = e;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isExternal</span>() {
+        <span class="hljs-keyword">return</span> isExternal;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span>  constantValue = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setConstantVal</span>(<span class="hljs-keyword">int</span> v) {
+        constantValue = v;
+    }
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getConstantVal</span>() {
+        <span class="hljs-keyword">return</span> constantValue;
+    }
+
+    <span class="hljs-keyword">private</span> StructDefine  vStruct;
+}
+</code></pre> 
+ <p>basicType用来表明变量属于什么类型，当前要做的编译器暂时只支持4种类型，int , char, void , struct, label. storageClass 表示变量的存储方式，FIXED表示变量只能存放在固定的内存地址，AUTO表示当前变量是局部变量，可以存放在堆栈上。如果当前变量是经过typedef修饰的，那么他的值也会设置成TYPEDEF, 例如：</p> 
+ <pre class="prettyprint"><code class="language-C hljs d"><span class="hljs-keyword">typedef</span> <span class="hljs-built_in">char</span>  single;</code></pre> 
+ <p>那么变量single对应的说明符中，storageClass的值等于TYPEDEF。 <br> CONSTANT 用来标识常量类型，加入你声明了一个枚举类型： <br> enum days { <br> MON, TUE, WED, TUR, FRI, SAU, SUN <br> };</p> 
+ <p>编译器会将MON,TUE等当做int类型的常值变量加入符号表：</p> 
+ <p>constant int MON = 0;</p> 
+ <p>于是MON, TUE, 等对应的Specifier类中，storageClass的值就是CONSTANT. 同时constantValue也会做相应的设置，例如MON对应的Specifier类，constantValue 等于0， TUE对应的specifier类的constantValue 等于1.</p> 
+ <p>对于字符串常量，编译器会把它转换成一个初始化了的char数组，例如</p> 
+ <p>“contents of string”;</p> 
+ <p>会转换成： <br> char s1[] = “contents of string”; <br> 这样，编译器就可以建立一个类型列表来描述字符串常量。</p> 
+ <p>Specifier最后还有一个StructDefine类型的成员，如果当前的变量是一个结构体的话，vStruct就不是null, StructDefine的具体定义，我们后面再给出。</p> 
+ <p>isLong用来表示当前变量占据多大字节，默认下int类型占据2字节，long int 占据4字节，因此：</p> 
+ <p>long int x;</p> 
+ <p>变量x对应的Specifier类，isLong就会设置为true.由于编译器默认没有long修饰的变量都占据2字节，所以short关键字会被自动忽略。</p> 
+ <p>isSigned, isStatic, isExternal 用来表明变量是否被对应的关键字所修饰，例如：</p> 
+ <p>external unsigned long int y;</p> 
+ <p>那么变量y对应的Specifier 中，isExternal 等于true, isSigned 等于false, isLong等于true.</p> 
+ <p>类型系统是一个复杂而且繁琐的技术要点，一节不可能讲清楚，本节我们先探讨一部分，在后面的章节中，我们继续就类型系统的理论和代码实现进行深入的了解。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言解释器：根据执行树执行代码</title>
+ <body> java开发C语言解释器：根据执行树执行代码</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>具体的代码演示和讲解请参数视频： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>前一节，我们建立起了代码执行树，本节，我们看看，如何根据执行树直接执行C语言代码，以下是上一节我们构建的执行树： <br> <img src="img/1647416930819/6803873313264362538.jpg" alt="这里写图片描述" title=""></p> 
+ <p><img src="img/1647416931044/7920032260738218568.jpg" alt="这里写图片描述" title=""></p> 
+ <p>这些执行树，本质上是图论里面的有向图，我们执行代码的过程，实际上是根据有向图进行深度优先遍历的过程，我们先遍历到底层节点，根据底层节点的信息执行相应动作，然后把执行的结果传递给上一层节点，然后再根据传递上来的信息做相应的操作，以此类推，知道返回到根节点时，执行结束。</p> 
+ <p>我们先看看与解释器相关的代码实现：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> Executor {
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root);
+}</code></pre> 
+ <p>Executor 是一个接口，执行树中每个节点都对应相应类型的Executor,每个具体类型的Executor都实现Execute接口，例如类型为NO_COMMA_EXPR类型的节点就会对应一个NoCommaExprExecutor类。在上面接口的基础上，我们先实现一个解释器的基类叫BaseExecutor:</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.Collections;
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">abstract</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseExecutor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">Executor</span>{<!-- --></span>
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">executeChildren</span>(ICodeNode root) {
+        ExecutorFactory factory = ExecutorFactory.getExecutorFactory();
+        Collections.reverse(root.getChildren());
+        <span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span> (i &lt; root.getChildren().size()) {
+            ICodeNode child = root.getChildren().get(i);
+            Executor executor = factory.getExecutor(child);
+            executor.Execute(child);
+            i++;
+        }
+    }
+
+
+    <span class="hljs-keyword">protected</span> <span class="hljs-keyword">void</span> <span class="hljs-title">copyChild</span>(ICodeNode root, ICodeNode child) {
+        root.setAttribute(ICodeKey.SYMBOL, child.getAttribute(ICodeKey.SYMBOL));
+        root.setAttribute(ICodeKey.VALUE, child.getAttribute(ICodeKey.VALUE));
+        root.setAttribute(ICodeKey.TEXT, child.getAttribute(ICodeKey.TEXT));
+    }
+}
+</code></pre> 
+ <p>BaseExecutor 实现两个调用，一个是executeChildren, 这个接口的作用是，当我们遍历到执行树上的某个节点时，要根据该节点进行相应的代码执行操作，在此之前，如果该节点有孩子的话，我们需要先执行他的孩子，它收到所以孩子的执行结果后，再根据这些结果进行相应的操作。while循环里就是从孩子队列里取出每个孩子对象，然后从Executor的工厂类中获得对应的执行对象去进行相应的执行动作。</p> 
+ <p>copyChild的目的是，把孩子节点的所有相关信息拷贝到父节点。</p> 
+ <p>接下来我们看看Executor的工厂类：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> frontend.CTokenType;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExecutorFactory</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> ExecutorFactory executorFactory = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-title">ExecutorFactory</span>() {
+
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> ExecutorFactory <span class="hljs-title">getExecutorFactory</span>() {
+        <span class="hljs-keyword">if</span> (executorFactory == <span class="hljs-keyword">null</span>) {
+            executorFactory = <span class="hljs-keyword">new</span> ExecutorFactory();
+        }
+
+        <span class="hljs-keyword">return</span> executorFactory;
+    }
+
+    <span class="hljs-keyword">public</span> Executor <span class="hljs-title">getExecutor</span>(ICodeNode node) {
+        CTokenType type = (CTokenType)node.getAttribute(ICodeKey.TokenType);
+        <span class="hljs-keyword">switch</span> (type) {
+        <span class="hljs-keyword">case</span> UNARY:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> UnaryNodeExecutor();
+        <span class="hljs-keyword">case</span> BINARY:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> BinaryExecutor();
+        <span class="hljs-keyword">case</span> NO_COMMA_EXPR:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> NoCommaExprExecutor();
+        <span class="hljs-keyword">case</span> EXPR:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> ExprExecutor();
+        <span class="hljs-keyword">case</span> STATEMENT:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> StatementExecutor();
+        <span class="hljs-keyword">case</span> STMT_LIST:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> StatementListExecutor();
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+}
+</code></pre> 
+ <p>通过getExecutor 可以看到，工程类会根据传入的节点类型生成对应的执行对象，当前节点类型有几种，我们就可以生成几种不同类型的节点执行器。我们先看看某个具体节点执行器的实现，例如BinaryExecutor:</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">package backend<span class="hljs-comment">;</span>
+
+import java<span class="hljs-preprocessor">.util</span><span class="hljs-preprocessor">.Collections</span><span class="hljs-comment">;</span>
+
+import frontend<span class="hljs-preprocessor">.CGrammarInitializer</span><span class="hljs-comment">;</span>
+import frontend<span class="hljs-preprocessor">.Symbol</span><span class="hljs-comment">;</span>
+
+public class BinaryExecutor extends BaseExecutor{
+    @Override
+    public Object Execute(ICodeNode root) {
+        executeChildren(root)<span class="hljs-comment">;</span>
+        ICodeNode child<span class="hljs-comment">;</span>
+        int production = (int)root<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.PRODUCTION</span>)<span class="hljs-comment">;</span>
+        switch (production) {
+        case CGrammarInitializer<span class="hljs-preprocessor">.Uanry</span>_TO_Binary:
+            child = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-comment">;</span>
+            copyChild(root, child)<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+
+        case CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Plus_Binary_TO_Binary:
+            Collections<span class="hljs-preprocessor">.reverse</span>(root<span class="hljs-preprocessor">.getChildren</span>())<span class="hljs-comment">;</span>
+            //先假设是整形数相加
+            int val1 = (Integer)root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+            int val2 = (Integer)root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+            root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val1 + val2)<span class="hljs-comment">;</span>
+
+            System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"Assign sum of "</span> + root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" and "</span>
+                    + root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" to variable "</span> + root<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>))<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+        }
+
+        return root<span class="hljs-comment">;</span>
+    }
+}
+</code></pre> 
+ <p>在Execute函数中，先调用execueChildren对所以孩子节点进行执行操作，然后根据执行节点所对应的表达式进行相应的操作，例如，如果当前Binary节点对应的表达式是: <br> BINARY -&gt; BINARY + BINARY <br> 那么，我们知道，当前要执行的就是加法操作，于是执行器从当前节点的两个子节点中，获得要做加法操作的两个加数，把它们相加后的结果存入当前节点，这样，当前节点的父节点就可以拿到当前节点的执行结果，以便进行相应的执行操作。</p> 
+ <p>其他执行器的逻辑类似，具体请参看视频演示，下面我们看看语句： <br> a = a + b; <br> 是如何被执行的。</p> 
+ <p>1： 从第二个图开始，执行树的根节点是STMT_LIST, 然后一直往下遍历，直到倒数第二个节点：NO_COMMA_EXPR.</p> 
+ <p>2: NO_COMMA_EXPR 有两个子节点，于是先执行这两个子节点，因此先往下走，遍历到最下方的NO_COMMA_EXPR节点。</p> 
+ <p>3：当前节点有一个孩子节点，BINARY, 于是向右走，遍历到子节点BINARY.</p> 
+ <p>4: 当前BINARY有两个子节点，因此可以先往右走，一直遍历到最底层节点UNARY.</p> 
+ <p>5: UNARY是最底层节点，因此可以直接执行，执行的过程是，根据UNARY节点的SYMBOL对象，获得变量a对应的数值，把该数值存储到节点里，然后返回到父节点BINARY。</p> 
+ <p>6： 在父节点BINARY中，根据前面显示的代码，该节点要做的只是把子节点所有信息拷贝过来，当然也就把变量a的值以及对应的Symbol也拷贝过来，然后再返回父节点，也是BINARY节点。</p> 
+ <p>7：当前BINARY节点还有一个子节点，对应的是变量b,因此继续遍历第二个子节点，执行过程跟步骤4，5，6一样，这样当前BINARY节点的两个子节点就分别含有变量a 和 b 对应的数值，根据前面代码，BINARY对应的执行器会把两个子节点的数值相加，然后存储到当前节点。</p> 
+ <p>8：然后继续返回到父节点NO_COMMA_EXPR, 该节点执行是所做的操作就是把子节点的值拷贝过来，于是当前节点就包含了a + b的结果，然后继续返回到父节点NO_COMMA_EXPR.</p> 
+ <p>9: 此时节点NO_COMMA_EXPR 正右边还有一个子节点，于是执行该子节点，该子节点执行后的作用是得到变量a对应的Symbol对象。</p> 
+ <p>10：由于所有子节点都执行完毕，当前节点NO_COMMA_EXPR可以执行相应操作，它做的动作是将下方子节点NO_COMMA_EXPR的数值赋值到右边节点所得到的Symbol对象里，也就是把 a+b的值设置到变量a所对应的Symbol对象中，这样，语句a = a + b; 就执行结束了。</p> 
+ <p>具体的代码演示和讲解请参数视频： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

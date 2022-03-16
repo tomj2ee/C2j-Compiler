@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C解释器：实现动态内存的分配和读写</title>
+ <body> java开发C解释器：实现动态内存的分配和读写</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>C语言有一个强大的功能，就是通过指针直接操作内存，正是因为C语言含有直接读写内存的机制，使得C语言在系统开发，底层开发等方面，占据了难以撼动的地位，同时也正是这个原因，C语言开发的程序常常出现内存泄漏和野指针等及其令人头疼的问题。</p> 
+ <p>本节，我们为解释器添加动态内存的分配和读写机制，完成本节内容后，解释器能准确解释执行下面代码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl">void main() {
+    char <span class="hljs-variable">*p</span>;
+    p = malloc(<span class="hljs-number">2</span>);
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"addr of p is : <span class="hljs-variable">%d</span>\n"</span>, p);
+
+    p[<span class="hljs-number">0</span>] = <span class="hljs-number">1</span>;
+    p[<span class="hljs-number">1</span>] = <span class="hljs-number">2</span>;
+
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"p[0] is : <span class="hljs-variable">%d</span>,  p[1] is : <span class="hljs-variable">%d</span>"</span>, p[<span class="hljs-number">0</span>], p[<span class="hljs-number">1</span>]);
+}</code></pre> 
+ <p>上面代码中，通过库函数调用malloc，先分配2字节的内存，接下来分别对分配的内存进行读写赋值，然后再把赋值后的内存内容打印出来。我们先看看怎么在解释器上实现动态内存的分配机制。</p> 
+ <p>malloc 调用后，会返回一个整形值，这个数值的内容无关紧要，只要知道以这个数值开始的地址，连续若干个字节的内存是可以提供给程序任意读写的就可以了。也就是说，这个数值相当于一把钥匙，通过这把钥匙，我们就能打开能用于打开存储东西的抽屉。我们看看如何在解释器中模拟这个机制，该机制的实现在MemoryHeap.java中：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.HashMap;
+<span class="hljs-keyword">import</span> java.util.Map;
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MemoryHeap</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> initAddr = <span class="hljs-number">10000</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> MemoryHeap instance = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> HashMap&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; memMap = <span class="hljs-keyword">new</span> HashMap&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> MemoryHeap <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {
+            instance = <span class="hljs-keyword">new</span> MemoryHeap();
+        } 
+
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> <span class="hljs-title">allocMem</span>(<span class="hljs-keyword">int</span> size) {
+        <span class="hljs-keyword">byte</span>[] mem = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[size];
+        memMap.put(initAddr, mem);
+        <span class="hljs-keyword">int</span> allocAddr = initAddr;
+        initAddr += size;
+
+        <span class="hljs-keyword">return</span> allocAddr;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; <span class="hljs-title">getMem</span>(<span class="hljs-keyword">int</span> addr) {
+        <span class="hljs-keyword">int</span> initAddr = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">for</span> (Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; entry : memMap.entrySet()) {
+            <span class="hljs-keyword">if</span> (entry.getKey() &lt;= addr &amp;&amp; entry.getKey() &gt; initAddr) {
+                initAddr = entry.getKey();
+                <span class="hljs-keyword">byte</span>[] mems = entry.getValue();
+
+                <span class="hljs-keyword">if</span> (initAddr + mems.length &gt; addr) {
+                    <span class="hljs-keyword">return</span> entry;
+                }
+            }
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">MemoryHeap</span>() {
+    }
+}
+</code></pre> 
+ <p>allocMem用来生成动态内存，调用该函数是，传入的参数就是要申请的内存大小。该类用一个HashMap来表示动态内存，map的key用来模拟动态内存的地址，value则是byte[] 数据类型，用来模拟分配的动态内存。当这个函数调用时，它使用一个整形数值来表示内存的虚拟起始地址，然后构造一个给定长度的字节数组，把整形数组和分配的字节数组结合起来，放入到map 中，以后程序可以通过对应的整形数来获得字节数组。</p> 
+ <p>有了虚拟起始地址后，通过这个地址，调用getMem，就可以获得对应的字节数组，程序对该数组的读取，就相当于对动态内存的读取，getMem返回的是一个Entry对象，这个对象包含了虚拟起始地址和byte类型数组。</p> 
+ <p>p[0] 表示读取分配的动态内存的第一个字节，它相当于把一组连续的内存当做数组来访问，我们以前讲解过，读取数组元素是由UnaryNodeExecutor来实现的，因此对应的内存读取机制其实现代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">public class UnaryNodeExecutor extends BaseExecutor{
+
+    @Override
+    public Object Execute(ICodeNode root) {
+        executeChildren(root)<span class="hljs-comment">;</span>
+        ....
+        switch (production) {
+        ....
+        case CGrammarInitializer<span class="hljs-preprocessor">.Unary</span>_LB_Expr_RB_TO_Unary:
+            child = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-comment">;</span>
+            symbol = (Symbol)child<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>)<span class="hljs-comment">;</span>
+            child = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span>
+            int index = (Integer)child<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+
+            try {
+                Declarator declarator = symbol<span class="hljs-preprocessor">.getDeclarator</span>(Declarator<span class="hljs-preprocessor">.ARRAY</span>)<span class="hljs-comment">;</span>
+                if (declarator != null) {
+                    Object val = declarator<span class="hljs-preprocessor">.getElement</span>(index)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val)<span class="hljs-comment">;</span>
+                    ArrayValueSetter setter = new ArrayValueSetter(symbol, index)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>, setter)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>, symbol<span class="hljs-preprocessor">.getName</span>())<span class="hljs-comment">; </span>
+                }
+                Declarator pointer = symbol<span class="hljs-preprocessor">.getDeclarator</span>(Declarator<span class="hljs-preprocessor">.POINTER</span>)<span class="hljs-comment">;</span>
+                if (pointer != null) {
+                    setPointerValue(root, symbol, index)<span class="hljs-comment">;</span>
+                    //create a PointerSetter
+                    PointerValueSetter pv = new PointerValueSetter(symbol, index)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>, pv)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>, symbol<span class="hljs-preprocessor">.getName</span>())<span class="hljs-comment">; </span>
+                }
+
+            }catch (Exception e) {
+                System<span class="hljs-preprocessor">.err</span><span class="hljs-preprocessor">.println</span>(e<span class="hljs-preprocessor">.getMessage</span>())<span class="hljs-comment">;</span>
+                System<span class="hljs-preprocessor">.exit</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span>
+            }
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+        }
+    }
+}
+
+private void setPointerValue(ICodeNode root, Symbol symbol, int index) {
+        MemoryHeap memHeap = MemoryHeap<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-comment">;</span>
+        int addr = (Integer)symbol<span class="hljs-preprocessor">.getValue</span>()<span class="hljs-comment">;</span>
+        Map<span class="hljs-preprocessor">.Entry</span>&lt;Integer, byte[]&gt; entry = memHeap<span class="hljs-preprocessor">.getMem</span>(addr)<span class="hljs-comment">;</span>
+        byte[] content = entry<span class="hljs-preprocessor">.getValue</span>()<span class="hljs-comment">;</span>
+        if (symbol<span class="hljs-preprocessor">.getByteSize</span>() == <span class="hljs-number">1</span>) {
+            root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, content[index])<span class="hljs-comment">;</span>
+        } else {
+            ByteBuffer buffer = ByteBuffer<span class="hljs-preprocessor">.allocate</span>(<span class="hljs-number">4</span>)<span class="hljs-comment">;</span>
+            buffer<span class="hljs-preprocessor">.put</span>(content, index, <span class="hljs-number">4</span>)<span class="hljs-comment">;</span>
+            buffer<span class="hljs-preprocessor">.flip</span>()<span class="hljs-comment">;</span>
+            root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, buffer<span class="hljs-preprocessor">.getLong</span>())<span class="hljs-comment">;</span>
+        }
+    }
+</code></pre> 
+ <p>当解释器解析到语句p[0]时，p[0]可能表示读取数组下标为0的元素，也可以表示读取动态内存从起始地址开始，偏移为0出的内存数据，怎么判断到底是哪一种情况呢。我们在以前实现类型系统时，在解析过程中，如果变量定义成数组或指针，那么我们会在它的Symbol 对象中添加一个成员，称之为Declarator,用这个类来对变量进行描述，如果变量p是数组，那么对应的Delcarator 类型是ARRAY, 如果是指针，那么对应的类型是POINTER.</p> 
+ <p>如果p是指针的话，那么if(pointer != null) 里面的代码就会执行，首先它通过调用setPointerValue, 把给定内存的内容读取出来，对应于p[0]，就是把指针p 指向的内存，读取偏移为0出的内存数据。</p> 
+ <p>setPointerValue的逻辑是，先得到内存的起始地址，这个地址的数值就是allocMem返回的，通过这个地址，在MemoryHeap的哈希表中找到对应的字节数值，这个字节数组就是用来模拟动态内存的。它的输入参数index对应于地址偏移，symbol.getByteSize() 用来获得指针变量的数据类型，如果变量类型是char, 那么我们一次读取一字节数据，若不然，我们一次读取4字节的数据。</p> 
+ <p>当解释器解析到语句 p[0] = 1 ; 时，着表明程序想对分配的内存进行写入，我们用一个类PointerValueSetter，把对内存的写入逻辑封装起来，该类代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PointerValueSetter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IValueSetter</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> Symbol symbol;
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> index = <span class="hljs-number">0</span>;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setValue</span>(Object obj) <span class="hljs-keyword">throws</span> Exception {
+        <span class="hljs-keyword">int</span> addr = (Integer)symbol.getValue();
+        MemoryHeap memHeap = MemoryHeap.getInstance();
+        Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; entry = memHeap.getMem(addr);
+        <span class="hljs-keyword">byte</span>[] content = entry.getValue();
+        Integer i = (Integer)obj;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">if</span> (symbol.getByteSize() == <span class="hljs-number">4</span>) {
+                content[index] = (<span class="hljs-keyword">byte</span>)((i&gt;&gt;<span class="hljs-number">24</span>) &amp; <span class="hljs-number">0xFF</span>);
+                content[index + <span class="hljs-number">1</span>] = (<span class="hljs-keyword">byte</span>)((i&gt;&gt;<span class="hljs-number">16</span>) &amp; <span class="hljs-number">0xFF</span>);
+                content[index + <span class="hljs-number">2</span>] = (<span class="hljs-keyword">byte</span>)((i&gt;&gt;<span class="hljs-number">8</span>) &amp; <span class="hljs-number">0xFF</span>);
+                content[index + <span class="hljs-number">3</span>] = (<span class="hljs-keyword">byte</span>)(i &amp; <span class="hljs-number">0xFF</span>);
+            } <span class="hljs-keyword">else</span> {
+                content[index] = (<span class="hljs-keyword">byte</span>)(i &amp; <span class="hljs-number">0xFF</span>);
+            }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            System.err.println(e.getMessage());
+            e.printStackTrace();
+            System.exit(<span class="hljs-number">1</span>);
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">PointerValueSetter</span>(Symbol symbol, <span class="hljs-keyword">int</span> index) {
+        <span class="hljs-keyword">this</span>.symbol = symbol;
+        <span class="hljs-keyword">this</span>.index = index;
+    }
+}</code></pre> 
+ <p>它的逻辑是，先从变量对应的Symbol对象中，获得变量的值，在指针变量的情况下，这个值代表的是内存的起始地址，根据这个地址，通过MemoryHeap获得对应的字节数组对象，然后根据偏移，把数据写入到字节数值中，在此，我们暂时默认写入的数据要不是4字节的int, 要不就是但自己的byte, 以后要读写更复杂的数据内容时，我们再做相应修改。</p> 
+ <p>对应变量赋值语句 p[0] = 1; 它的实现是在NoCommaExprExecutor这个类中的，我们看看对应实现：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">NoCommaExprExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+    ExecutorFactory factory = ExecutorFactory.getExecutorFactory();
+
+    <span class="hljs-annotation">@Override</span> 
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+        ....
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NoCommaExpr_Equal_NoCommaExpr_TO_NoCommaExpr:
+            child = root.getChildren().get(<span class="hljs-number">0</span>);
+            String t = (String)child.getAttribute(ICodeKey.TEXT);
+            IValueSetter setter;
+            setter = (IValueSetter)child.getAttribute(ICodeKey.SYMBOL);
+            child = root.getChildren().get(<span class="hljs-number">1</span>);
+            value = child.getAttribute(ICodeKey.VALUE);
+
+            <span class="hljs-keyword">try</span> {
+                setter.setValue(value);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+                System.err.println(<span class="hljs-string">"Runtime Error: Assign Value Error"</span>);
+            }
+
+            child = root.getChildren().get(<span class="hljs-number">0</span>);
+            child.setAttribute(ICodeKey.VALUE, value);
+            copyChild(root, root.getChildren().get(<span class="hljs-number">0</span>));
+
+            <span class="hljs-keyword">break</span>;
+        }</code></pre> 
+ <p>这段代码跟以前我们讲解对数组元素的赋值时所实现的一模一样，这主要得益于，我们一开始就把赋值机制通过接口IValueSetter封装起来，在这里，setter所对应的类就是前面提到的PointerValueSetter，解释器此处不需要知道到底当前是对数组元素赋值，还是对内存赋值，只要调用接口就可以了，具体的赋值逻辑由具体的接口类负责实现。</p> 
+ <p>最后我们再看看库函数malloc的实现，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ClibCall {
+    ....
+ <span class="hljs-keyword">private</span> Object <span class="hljs-title">handleMallocCall</span>() {
+        ArrayList&lt;Object&gt; argsList = FunctionArgumentList.getFunctionArgumentList().getFuncArgList(<span class="hljs-keyword">false</span>);
+        <span class="hljs-keyword">int</span> size = (Integer)argsList.<span class="hljs-keyword">get</span>(<span class="hljs-number">0</span>);
+        <span class="hljs-keyword">int</span> addr = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">if</span> (size &gt; <span class="hljs-number">0</span>) {
+            MemoryHeap memHeap = MemoryHeap.getInstance();
+            addr = memHeap.allocMem(size);  
+        } 
+
+        <span class="hljs-keyword">return</span> addr;
+
+    }
+    ....
+}</code></pre> 
+ <p>它的逻辑比较简单，就是通过MemoryHeap的allocMem 接口，得到一个虚拟的内存起始地址，然后把该地址返回即可。</p> 
+ <p>本节内容有点复杂，请参看视频获得更详细的讲解和调试演示，这样才好加深理解。更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416417357/-841922948274603928.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

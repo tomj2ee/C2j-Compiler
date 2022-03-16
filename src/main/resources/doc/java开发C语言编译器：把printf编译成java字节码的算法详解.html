@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言编译器：把printf编译成java字节码的算法详解</title>
+ <body> java开发C语言编译器：把printf编译成java字节码的算法详解</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p><a href="http://study.163.com/provider-search?keyword=Coding%E8%BF%AA%E6%96%AF%E5%B0%BC">更详细的讲解和代码调试演示过程，请点击链接</a></p> 
+ <p>上一节，我们探讨了jvm函数调用时，参数是如何传递的。上节对参数传递的方式有个错误，这里先更正一下。在上节，我是这么说明jvm函数调用时的参数传递方式的：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">static</span> <span class="hljs-keyword">double</span> lotsOfArguments(<span class="hljs-keyword">int</span> a, <span class="hljs-keyword">long</span> b, <span class="hljs-keyword">float</span> c, String[][] d) {
+    ....
+}</code></pre> 
+ <p>当上面函数运行时，在执行函数lotsOfArguments前，jvm会把输入参数全部放到堆栈上，当函数被执行时，参数会从堆栈拷贝到局部变量队列，因此当lotsOfArguments执行前，堆栈上参数如下： <br> stack: <br> d <br> c <br> b <br> a <br> 函数执行时堆栈上的参数会依次拷贝到局部变量队列，情况如下： <br> local_list: d c b a 。</p> 
+ <p>上面说法错误在于，参数从堆栈拷贝到局部队列的次序说反了，参数拷贝到队列后的次序应该是： <br> local_list: a b c d.</p> 
+ <p>由此，当我们的编译器把C含有传递参数的函数调用的代码编译成java字节码时，需要注意处理上面所说的参数传递的次序，上一节，我们使用了一个名为：getLocalVariableIndex(Symbol symbol)的函数来查找函数输入参数对应在具备变量队列上的位置，这里我们需要对其实现根据上面的修改来更正一下，好在需要改正的代码不多，内容如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLocalVariableIndex</span>(Symbol symbol) {
+        TypeSystem typeSys = TypeSystem.getTypeSystem();
+        String funcName = nameStack.peek();
+        Symbol funcSym = typeSys.getSymbolByText(funcName, <span class="hljs-number">0</span>, <span class="hljs-string">"main"</span>);
+        ArrayList&lt;Symbol&gt; localVariables = <span class="hljs-keyword">new</span> ArrayList&lt;Symbol&gt;();
+        Symbol s = funcSym.getArgList();
+        <span class="hljs-keyword">while</span> (s != <span class="hljs-keyword">null</span>) {
+            localVariables.add(s);
+            s = s.getNextSymbol();
+        }
+        Collections.reverse(localVariables); <span class="hljs-comment">//相比上节代码，我们只需添加这行就能改正上面所说的错误</span>
+
+        ArrayList&lt;Symbol&gt; list = typeSys.getSymbolsByScope(symbol.getScope());
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; list.size(); i++) {
+            <span class="hljs-keyword">if</span> (localVariables.contains(list.<span class="hljs-keyword">get</span>(i)) == <span class="hljs-keyword">false</span>) {
+                localVariables.add(list.<span class="hljs-keyword">get</span>(i));
+            }
+        }
+
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; localVariables.size(); i++) {
+            <span class="hljs-keyword">if</span> (localVariables.<span class="hljs-keyword">get</span>(i) == symbol) {
+                <span class="hljs-keyword">return</span> i;
+            }
+        }
+
+        <span class="hljs-keyword">return</span> -<span class="hljs-number">1</span>;
+    }</code></pre> 
+ <p>说到有输入参数的函数调用，在我们的C语言代码里，用到最多的是printf,因此有必要就该函数如何编译成java字节码再进行详细的解析。假设C代码中有这样一条语句：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">printf</span>(<span class="hljs-string">"the value of a, b , c is: <span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>"</span>, a, b, c);</code></pre> 
+ <p>我们知道，在Java中对应printf函数的是System.out.print，我要在jvm中实现上面printf函数的功能，我们需要先把对象System.out压入到堆栈，然后再把要打印到控制台上的变量内容压入到堆栈上。我们先看一个简单点的版本：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">printf</span>(<span class="hljs-string">"<span class="hljs-variable">%d</span>"</span>, <span class="hljs-keyword">x</span>);</code></pre> 
+ <p>上面的代码本意是要把整形变量x的值输出到控制台，但我们实现的编译器在解析上面代码时，会先解析变量x, 当解析到一个变量x时，假设变量x在局部队列中的次序是0，那么我们当前实现的编译器一旦解析到变量x时，会先输出一条java字节码指令： <br> ILOAD 0</p> 
+ <p>解析完变量x后，编译器才会明白printf不是一个变量，而是一个函数名称，这时我们的编译器才会知道，要把printf与java对象System.out对应起来，于是就会把System.out对象压入到堆栈上，因此就会输出java字节码指令： <br> getstatic java/lang/System/out Ljava/io/PrintStream;</p> 
+ <p>这样的话就会把System.out对象压入到堆栈上，此时堆栈的情况如下： <br> stack: <br> System.out <br> x</p> 
+ <p>这样一来就有问题了，要想正确打印x变量的值，堆栈上的情况应该是： <br> stack: <br> x <br> System.out</p> 
+ <p>也就是说两者在堆栈上的位置发生了颠倒。为了处理这个问题，需要修改一下编译器的编译流程，当编译器先解读了变量x,导致x的值先压入堆栈，当编译器接着解读到printf时，我们必须先把变量x从堆栈上，因为变量x是从局部变量队列加载到堆栈上的，也就是说上面执行完语句ILOAD 0 后，变量x同时存在在堆栈和队列上： <br> stack: <br> x <br> local_list: x</p> 
+ <p>此时，我们需要把x从堆栈上挪开，挪开后放到哪呢？我们把它挪开后，放到局部变量队列的末尾，因此为了把x挪到局部变量队列的末尾，我们接着执行指令：ISTROE 1, 于是堆栈和队列的情况在执行指令后如下： <br> stack: <br> null <br> local_list: x , x <br> 也就是说，此时变量x的值在队列上有两份，你会疑问直接把x的值从堆栈顶部弹掉，压入System.out对象后，再次把x从队列里面再压入堆栈不就可以了吗，亦或者我们把x从堆栈顶部挪开时，直接挪回x原来在队列中的位置，也就是执行ISTORE 0 不就可以了吗。这么做是不可以的，因为如果是这种情况：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">printf</span>(<span class="hljs-string">"<span class="hljs-variable">%d</span>"</span>, <span class="hljs-keyword">x</span>+<span class="hljs-number">1</span>);</code></pre> 
+ <p>此时我们要输出的是x+1的值，输出后变量x的值是不变的，编译器解读上面代码时，会先解读到x+1,于是它会把这个表达式的值压入堆栈，形成如下情景： <br> stack: <br> x+1</p> 
+ <p>local_list: x</p> 
+ <p>因此如果直接把堆栈顶部元素弹开，那么x+1的值就找不来了，如果直接把堆栈顶部的内容存回到x变量在队列中的位置，那就好变成： <br> stack: <br> null <br> local_list: x+1 <br> 这样的话，变量x的内容就改变了，因此也不行，所以要把堆栈顶部元素的值存到局部变量队列的末尾，也就是执行指令ISTORE 1： <br> stack: <br> null <br> local_list: x, x+1</p> 
+ <p>接着把System.out压入堆栈，也就是执行指令： <br> getstatic java/lang/System/out Ljava/io/PrintStream; <br> 这时候情况如下： <br> stack: <br> System.out <br> local_list: x, x+1 <br> 这时候，再把队列末尾的元素压到堆栈顶部，也就是执行语句ILOAD 1,于是情况变成： <br> stack: <br> x+1 <br> System.out <br> local_list: x, x+1</p> 
+ <p>此时再调用System.out对象的print(I)V方法，也就是打印一个整形的方法，因此对应的指令就是： <br> invokevirtual java/io/PrintStream/print(I)V</p> 
+ <p>所以综合起来说，当编译器编译语句：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">printf</span>(<span class="hljs-string">"<span class="hljs-variable">%d</span>"</span>, <span class="hljs-keyword">x</span>);</code></pre> 
+ <p>成为java字节码时，编译后的代码为：</p> 
+ <pre class="prettyprint"><code class=" hljs lua">iload <span class="hljs-number">0</span> 
+istore <span class="hljs-number">1</span>
+getstatic   java/lang/System/out Ljava/<span class="hljs-built_in">io</span>/PrintStream; 
+iload <span class="hljs-number">1</span>
+invokevirtual   java/<span class="hljs-built_in">io</span>/PrintStream/<span class="hljs-built_in">print</span>(I)V</code></pre> 
+ <p>我们再看复杂一点的情况：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> f(<span class="hljs-keyword">int</span> a, <span class="hljs-keyword">int</span> b, <span class="hljs-keyword">int</span> c, <span class="hljs-keyword">int</span> <span class="hljs-keyword">x</span>) {
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"<span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>, <span class="hljs-variable">$d</span>"</span>, a, b ,c , <span class="hljs-keyword">x</span>);
+    <span class="hljs-keyword">int</span> d = <span class="hljs-keyword">x</span>;
+    <span class="hljs-keyword">return</span> d;
+}</code></pre> 
+ <p>该函数有4个输入参数，因此函数在jvm执行时，四个输入参数会放置在局部变量队列上： <br> local_list: a, b , c , x, d <br> 变量a处于局部变量队列的低0处，变量b处于队列位置为1处，变量c处于队列位置为2处，变量x处于队列位置为3处。由于函数还有一个局部变量d,因此变量d在队列的末尾，也就是处于队列位置为4处。</p> 
+ <p>在编译器解读语句printf(“%d, %d, %d, %d”, a, b, c, x);时，根据我们前面的讨论，编译器会先解读函数的输入参数，也就是先解读变量a,b,c,d,因为每解读到一个变量是，我们的编译器会自动执行iload语句，把变量加载到堆栈上，因此就产生了如下指令：</p> 
+ <pre class="prettyprint"><code class=" hljs livecodeserver">iload <span class="hljs-number">0</span>  ;解析变量<span class="hljs-operator">a</span>
+iload <span class="hljs-number">1</span>  ;解析变量b
+iload <span class="hljs-number">2</span>  ;解析变量c
+iload <span class="hljs-number">3</span>  ;解析变量x</code></pre> 
+ <p>上面指令执行后，jvm堆栈和队列情况如下： <br> stack : <br> x <br> c <br> b <br> a <br> local_list: a, b , c, x , d</p> 
+ <p>根据前面讨论，我们需要先把变量从堆栈上挪到队列的末尾，因此编译器要执行指令：</p> 
+ <pre class="prettyprint"><code class=" hljs livecodeserver">iload <span class="hljs-number">5</span>  ;把x放到队列位置为<span class="hljs-number">5</span>处
+iload <span class="hljs-number">6</span>  ;把c放到队列位置为<span class="hljs-number">6</span>处
+iload <span class="hljs-number">7</span>  ;把b放到队列位置为<span class="hljs-number">7</span>处
+iload <span class="hljs-number">8</span>  ;把<span class="hljs-operator">a</span>放到队列位置为<span class="hljs-number">8</span>处</code></pre> 
+ <p>于是堆栈和队列的情景如下： <br> stack: <br> null <br> local_list: a, b , c, x, d, x, c, b , a</p> 
+ <p>这时，编译器再把System.out压入堆栈，也就是执行指令：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;</code></pre> 
+ <p>接着把处于位置8处的变量a的值再重新放回堆栈，也就是执行指令ILOAD 8，此时运行环境为： <br> stack: <br> a <br> System.out <br> local_list: a, b, c, x ,d ,x ,c ,b, a <br> 这时调用指令invokevirtual java/io/PrintStream/print(I)V，执行System.out对象的Print函数，把a变量的值输出到控制台。接着反复执行这几个步骤，把剩下几个变量的值依次打印到控制台上，于是上面代码中的printf语句编译成java字节码后的内容如下：</p> 
+ <pre class="prettyprint"><code class=" hljs lua">iload <span class="hljs-number">0</span>
+iload <span class="hljs-number">1</span>
+iload <span class="hljs-number">2</span>
+iload <span class="hljs-number">3</span>
+istore <span class="hljs-number">5</span>
+istore <span class="hljs-number">6</span>
+istore <span class="hljs-number">7</span>
+istore <span class="hljs-number">8</span>
+getstatic   java/lang/System/out Ljava/<span class="hljs-built_in">io</span>/PrintStream;
+ilod <span class="hljs-number">8</span>
+invokevirtual   java/<span class="hljs-built_in">io</span>/PrintStream/<span class="hljs-built_in">print</span>(I)V
+getstatic   java/lang/System/out Ljava/<span class="hljs-built_in">io</span>/PrintStream;
+ilod <span class="hljs-number">7</span>
+invokevirtual   java/<span class="hljs-built_in">io</span>/PrintStream/<span class="hljs-built_in">print</span>(I)V
+getstatic   java/lang/System/out Ljava/<span class="hljs-built_in">io</span>/PrintStream;
+ilod <span class="hljs-number">6</span>
+invokevirtual   java/<span class="hljs-built_in">io</span>/PrintStream/<span class="hljs-built_in">print</span>(I)V
+getstatic   java/lang/System/out Ljava/<span class="hljs-built_in">io</span>/PrintStream;
+ilod <span class="hljs-number">5</span>
+invokevirtual   java/<span class="hljs-built_in">io</span>/PrintStream/<span class="hljs-built_in">print</span>(I)V</code></pre> 
+ <p>大家可以看到，一条C语言语句编译成java字节码时，编出的语句数量是原语句的十几倍，这也是为何在编译原理中，代码优化是极为重要的一环，没有优化技术，就算编出来的代码能跑，但是效率也是非常低下的。</p> 
+ <p>实现上面编译功能的代码在ClibCall.java中:</p> 
+ <pre class="prettyprint"><code class=" hljs axapta"><span class="hljs-keyword">private</span> Object handlePrintfCall() {
+        ArrayList&lt;Object&gt; argsList = FunctionArgumentList.getFunctionArgumentList().getFuncArgList(<span class="hljs-keyword">false</span>);
+        String argStr = (String)argsList.get(<span class="hljs-number">0</span>);
+        String formatStr = <span class="hljs-string">""</span>;
+
+        <span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">int</span> argCount = <span class="hljs-number">1</span>;
+        String <span class="hljs-keyword">str</span> = <span class="hljs-string">""</span>;
+        <span class="hljs-keyword">while</span> (i &lt; argStr.length()) {
+            <span class="hljs-keyword">if</span> (argStr.charAt(i) == <span class="hljs-string">'%'</span> &amp;&amp; i+<span class="hljs-number">1</span> &lt; argStr.length() &amp;&amp; 
+                    argStr.charAt(i+<span class="hljs-number">1</span>) == <span class="hljs-string">'d'</span>) {
+                i += <span class="hljs-number">2</span>;
+                <span class="hljs-comment">//generateJavaAssemblyForPrintf(str);</span>
+                <span class="hljs-keyword">str</span> = <span class="hljs-string">""</span>;
+                formatStr += argsList.get(argCount);
+                argCount++;
+                <span class="hljs-comment">//printInteger();</span>
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">str</span> += argStr.charAt(i);
+                formatStr += argStr.charAt(i);
+                i++;
+            }
+        }
+
+        System.out.println(formatStr);
+
+        generateJavaAssemblyForPrintf(argStr, argCount - <span class="hljs-number">1</span>);
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> generateJavaAssemblyForPrintf(String argStr, <span class="hljs-keyword">int</span> argCount) {
+        ProgramGenerator generator = ProgramGenerator.getInstance();
+        String funcName = generator.getCurrentFuncName();
+        TypeSystem typeSystem = TypeSystem.getTypeSystem();
+        ArrayList&lt;Symbol&gt; list = typeSystem.getSymbolsByScope(funcName);
+        <span class="hljs-keyword">int</span> localVariableNum = list.size();
+        <span class="hljs-keyword">int</span> <span class="hljs-keyword">count</span> = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">while</span> (<span class="hljs-keyword">count</span> &lt; argCount) {
+            generator.emit(Instruction.ISTORE, <span class="hljs-string">""</span> + (localVariableNum + <span class="hljs-keyword">count</span>));
+            <span class="hljs-keyword">count</span>++;
+        }
+
+        <span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>;
+        String <span class="hljs-keyword">str</span> = <span class="hljs-string">""</span>;
+        <span class="hljs-keyword">count</span> = argCount - <span class="hljs-number">1</span>;
+        <span class="hljs-keyword">while</span> (i &lt; argStr.length()) {
+            <span class="hljs-keyword">if</span> (argStr.charAt(i) == <span class="hljs-string">'%'</span> &amp;&amp; i+<span class="hljs-number">1</span> &lt; argStr.length() &amp;&amp; 
+                    argStr.charAt(i+<span class="hljs-number">1</span>) == <span class="hljs-string">'d'</span>) {
+                i += <span class="hljs-number">2</span>;
+                printString(<span class="hljs-keyword">str</span>);
+                <span class="hljs-keyword">str</span> = <span class="hljs-string">""</span>;
+                printInteger(localVariableNum + <span class="hljs-keyword">count</span>);
+                <span class="hljs-keyword">count</span>--;
+            } <span class="hljs-keyword">else</span> {
+                <span class="hljs-keyword">str</span> += argStr.charAt(i);
+                i++;
+            }
+        }
+
+        printString(<span class="hljs-string">"\n"</span>);
+    }</code></pre> 
+ <p>最后，我们再看看jvm的运算指令，对整形进行四种基础运行的jvm指令为：iadd, isub, imul, idiv. 如果要计算 1+2, 那么分别把数值1和2压入堆栈，然后执行指令iadd, 那么堆栈顶部的元素就会被弹出，他们的和也就是3会被压入到堆栈，其他运算指令的原理相同。如果计算的是浮点数而不是整形，那么就得使用对应指令，他们分别是fadd, fsub, fmul, fdiv,如果计算的是长整形，那么对应的指令就是ladd, lsub, lmul, ldiv, 在我们实现的编译器中，目前暂时只支持对整形的运算指令，相应的代码实现在BinaryExecutor.java:</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">public class BinaryExecutor extends BaseExecutor{
+    @Override
+    public Object Execute(ICodeNode root) {
+    ....
+    case CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Plus_Binary_TO_Binary:
+        case CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_DivOp_Binary_TO_Binary:
+        case CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Minus_Binary_TO_Binary:
+        case CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Start_Binary_TO_Binary:
+            //先假设是整形数相加
+            int val1 = (Integer)root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+            int val2 = (Integer)root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+
+            if (production == CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Plus_Binary_TO_Binary) {
+                String text = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" plus "</span> + root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>)<span class="hljs-comment">;</span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val1 + val2)<span class="hljs-comment">; </span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>,  text)<span class="hljs-comment">;</span>
+                System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(text + <span class="hljs-string">" is "</span> + (val1+val2) )<span class="hljs-comment">;   </span>
+                ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.IADD</span>)<span class="hljs-comment">;</span>
+            } else if (production ==  CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Minus_Binary_TO_Binary) {
+                String text = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" minus "</span> + root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>)<span class="hljs-comment">;</span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val1 - val2)<span class="hljs-comment">; </span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>,  text)<span class="hljs-comment">;</span>
+                System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(text + <span class="hljs-string">" is "</span> + (val1-val2) )<span class="hljs-comment">;   </span>
+                ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.ISUB</span>)<span class="hljs-comment">;</span>
+            } else if (production ==  CGrammarInitializer<span class="hljs-preprocessor">.Binary</span>_Start_Binary_TO_Binary) {
+                String text = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" * "</span> + root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>)<span class="hljs-comment">;</span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val1 * val2)<span class="hljs-comment">; </span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>,  text)<span class="hljs-comment">;</span>
+                System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>(text + <span class="hljs-string">" is "</span> + (val1 * val2) )<span class="hljs-comment">;</span>
+
+                ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.IMUL</span>)<span class="hljs-comment">;</span>
+            }
+            else {
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val1 / val2)<span class="hljs-comment">; </span>
+                System<span class="hljs-preprocessor">.out</span><span class="hljs-preprocessor">.println</span>( root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" is divided by "</span>
+                        + root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>) + <span class="hljs-string">" and result is "</span> + (val1/val2) )<span class="hljs-comment">;</span>
+                ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.emit</span>(Instruction<span class="hljs-preprocessor">.IDIV</span>)<span class="hljs-comment">;</span>
+            }
+
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+    ....
+    }
+}</code></pre> 
+ <p>完成本节代码后，我们的编译器能将下面C代码编译成java字节码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> f(<span class="hljs-keyword">int</span> a, <span class="hljs-keyword">int</span> b, <span class="hljs-keyword">int</span> c, <span class="hljs-keyword">int</span> <span class="hljs-keyword">x</span>) {
+   <span class="hljs-keyword">printf</span>(<span class="hljs-string">"value of a, b ,c ,x is: <span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>, <span class="hljs-variable">%d</span>"</span>,  a, b, c, <span class="hljs-keyword">x</span>);
+   <span class="hljs-keyword">int</span> d;
+   d = (a<span class="hljs-variable">*x</span><span class="hljs-variable">*x</span>) + (b<span class="hljs-variable">*x</span>);
+   <span class="hljs-keyword">int</span> e;
+   <span class="hljs-keyword">int</span> h;
+   e = <span class="hljs-number">6</span>;
+   h = <span class="hljs-number">3</span>;
+   <span class="hljs-keyword">printf</span>(<span class="hljs-string">"e divided by h is : <span class="hljs-variable">%d</span>"</span>, e/h);
+   <span class="hljs-keyword">return</span> d;
+}
+
+void main() {
+    <span class="hljs-keyword">int</span> c; 
+    c = f(<span class="hljs-number">1</span>, <span class="hljs-number">2</span>, <span class="hljs-number">3</span>, <span class="hljs-number">4</span>);
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"result of calling f is :<span class="hljs-variable">%d</span>"</span>, c);
+}
+</code></pre> 
+ <p>上面代码编译成java汇编代码的结果为：</p> 
+ <pre class="prettyprint"><code class=" hljs d">.<span class="hljs-keyword">class</span> <span class="hljs-keyword">public</span> CSourceToJava
+.<span class="hljs-keyword">super</span> java/lang/Object
+
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> main([Ljava/lang/String;)V
+    sipush  <span class="hljs-number">1</span>
+    sipush  <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">3</span>
+    sipush  <span class="hljs-number">4</span>
+    invokestatic    CSourceToJava/f(IIII)I
+    istore  <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">0</span>
+    istore  <span class="hljs-number">1</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"result of calling f is :"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">1</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    <span class="hljs-keyword">return</span>
+.end method
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> f(IIII)I
+    iload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">2</span>
+    iload   <span class="hljs-number">3</span>
+    istore  <span class="hljs-number">7</span>
+    istore  <span class="hljs-number">8</span>
+    istore  <span class="hljs-number">9</span>
+    istore  <span class="hljs-number">10</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"value of a, b ,c ,x is: "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">10</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">", "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">9</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">", "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">8</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">", "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">7</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    iload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">3</span>
+    imul
+    iload   <span class="hljs-number">3</span>
+    imul
+    iload   <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">3</span>
+    imul
+    iadd
+    istore  <span class="hljs-number">4</span>
+    sipush  <span class="hljs-number">6</span>
+    istore  <span class="hljs-number">5</span>
+    sipush  <span class="hljs-number">3</span>
+    istore  <span class="hljs-number">6</span>
+    iload   <span class="hljs-number">5</span>
+    iload   <span class="hljs-number">6</span>
+    idiv
+    istore  <span class="hljs-number">7</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"e divided by h is : "</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">7</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    iload   <span class="hljs-number">4</span>
+    ireturn
+.end method
+
+.end <span class="hljs-keyword">class</span>
+</code></pre> 
+ <p>把上面java汇编代码在编译成二进制字节码运行后结果如下： <br> <img src="img/1647416412435/-8074606234766983950.jpg" alt="这里写图片描述" title=""></p> 
+ <p>更详细的讲解和调试演示过程请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416412508/-2420796488481886843.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

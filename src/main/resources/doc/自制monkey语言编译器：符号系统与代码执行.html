@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> 自制monkey语言编译器：符号系统与代码执行</title>
+ <body> 自制monkey语言编译器：符号系统与代码执行</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>前几节，我们介绍了如何使用语法解析算法对代码进行解析。语法解析的目的是为了明白代码语句的意图，例如对于语句: c = a + b; 语法解析后，编译器就明白代码是想把变量a和b的值相加，再把结果赋值给变量c.然而要想实现这样的结果，编译器还得需要不少辅助信息，例如变量a和b对应的数值是多少，这些辅助信息我们会存储在一种称之为符号表的数据结构中。</p> 
+ <p>在前几节语法解析时，代码实际上建造了一种树形结构，例如语句 a+b; 其中包含三个元素，a和b属于Identifier, 三者构成了一个算术表达式，也就是expression, 这就相当于构建了一颗三叉树，树的节点就是expression, 叶子节点就是两个Identifier和加号。在进行语句执行时，编译器会遍历这样的多叉树，然后执行相应的动作，把动作执行后的结果存储在对应的符号表里。例如编译器遍历了语句a+b对应的多叉树后，会从符号表中找到变量a,b对应的数值，根据读取到的符号”+”,它会做一个加法，把结果存储到变量c对应的符号表中，接下来我们先看看符号表结构，我们先看看整型和布尔型变量对应的符号是怎么定义的。</p> 
+ <p>在本地目录新建一个文件叫MonkeyEvaluator.js, 添加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor (props) {
+        <span class="hljs-keyword">this</span>.INTEGER_OBJ = <span class="hljs-string">"INTEGER"</span>
+        <span class="hljs-keyword">this</span>.BOOLEAN_OBJ = <span class="hljs-string">"BOOLEAN"</span>
+        <span class="hljs-keyword">this</span>.NULL_OBJ = <span class="hljs-string">"NULL"</span>
+    }
+
+    <span class="hljs-keyword">type</span>() {<!-- --><span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>}
+
+    inspect() {<!-- --><span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>}
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Integer</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor(props) {
+        <span class="hljs-keyword">super</span>(props)
+        <span class="hljs-keyword">this</span>.value = props.value
+    }
+
+    inspect () {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">""</span> + <span class="hljs-keyword">this</span>.value
+    }
+
+    <span class="hljs-keyword">type</span> () {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.INTEGER_OBJ
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Boolean</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor (props) {
+        <span class="hljs-keyword">super</span>(props)
+        <span class="hljs-keyword">this</span>.value = props.value
+    }
+
+    <span class="hljs-keyword">type</span> () {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.BOOLEAN_OBJ
+    }
+
+    inspect () {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">""</span> + <span class="hljs-keyword">this</span>.value
+    }
+}
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Null</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor (props) {
+        <span class="hljs-keyword">super</span>(props)
+    }
+
+    <span class="hljs-keyword">type</span> () {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.NULL_OBJ
+    }
+
+    inspect () {
+        <span class="hljs-keyword">return</span> <span class="hljs-string">"null"</span>
+    }
+}
+</code></pre> 
+ <p>上面代码定义了符号表中应对不同数据类型的符号，BaseObject是所有符号对象的父类，它定义所有符号对象必须导出的接口，其中type接口返回符号对应的数据类型，inspect接口打印符号对象的内容。在BaseObject的构造函数中，它定义了当前符号对象的类型，分别是整形，布尔型和NULL。</p> 
+ <p>接下来的Integer, Boolean, 和 Null 分别继承自BaseObject, 他们分别用于记录数据类型为整形，布尔型和Null型变量的辅助信息，其中前两者都含有一个value域，它用来存储变量对应的数值。接着我们将实现一个能够遍历语法解析树的类，它将遍历每个节点，同时执行相应动作，我们先回到MonkeyCompilerParser.js,为每个节点增加一个类型信息，例如：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExpressionStatement</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Statement</span> {<!-- --></span>
+  constructor(props) {
+    <span class="hljs-keyword">super</span>(props)
+    <span class="hljs-keyword">this</span>.token = props.token
+    <span class="hljs-keyword">this</span>.expression = props.expression
+    <span class="hljs-keyword">var</span> s = <span class="hljs-string">"expression: "</span> + <span class="hljs-keyword">this</span>.expression.getLiteral()
+    <span class="hljs-keyword">this</span>.tokenLiteral = s
+    <span class="hljs-keyword">this</span>.<span class="hljs-keyword">type</span> = <span class="hljs-string">"ExpressionStatement"</span>
+  }
+}
+...
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">IntegerLiteral</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span> {<!-- --></span>
+    constructor(props) {
+        <span class="hljs-keyword">super</span>(props)
+        <span class="hljs-keyword">this</span>.token = props.token
+        <span class="hljs-keyword">this</span>.value = props.value
+        <span class="hljs-keyword">var</span> s = <span class="hljs-string">"Integer value is: "</span> + <span class="hljs-keyword">this</span>.token.getLiteral()
+        <span class="hljs-keyword">this</span>.tokenLiteral = s
+        <span class="hljs-comment">// change here</span>
+        <span class="hljs-keyword">this</span>.<span class="hljs-keyword">type</span> = <span class="hljs-string">"Integer"</span>
+    }
+}
+
+<span class="hljs-comment">//change here </span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Boolean</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span> {<!-- --></span>
+  constructor(props) {
+    <span class="hljs-keyword">super</span>(props)
+    <span class="hljs-keyword">this</span>.token = props.token
+    <span class="hljs-keyword">this</span>.value = props.value
+    <span class="hljs-keyword">var</span> s = <span class="hljs-string">"Boolean token with value of "</span> + <span class="hljs-keyword">this</span>.value
+    <span class="hljs-keyword">this</span>.tokenLiteral = s
+    <span class="hljs-comment">//change here</span>
+    <span class="hljs-keyword">this</span>.<span class="hljs-keyword">type</span> = <span class="hljs-string">"Boolean"</span>
+  }
+}
+...</code></pre> 
+ <p>我们增加的type值域就是用来标明当前节点的类型。回忆前几节我们详细研究的语法解析流程，对于如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs lisp"><span class="hljs-number">5</span><span class="hljs-comment">;</span></code></pre> 
+ <p>语法解析器会先调用parseExpressionStatement()来执行解析，在该函数里，它会根据调用表，调用parseExpression()接口来执行解析，后者会调用parseIntegerLiteral()接口，在该函数中，它把字符”5”转换成数字5，然后创建一个IntegerLiteral对象，把数字5存储在里面，这个对象会返回到parseExpressionStatement(),这个函数会构造一个ExpressionStatement对象，然后再把IntegerLiteral对象存储其中。根据上面代码的定义，IntegeLiteral对象会存储在ExpressionStatment对象的expression值域中。</p> 
+ <p>于是解析过程就构造了一个语法树节点，它的结构是这样：ExpressionStatement -&gt; IntegerLiteral。于是变量这个节点时，我们需要先访问ExpressionStatement,然后从它的expression值域中取出IntegerLiteral对象，再从后者的value域中读取对应的数值。根据这个逻辑，我们编写语法执行器的代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">class MonkeyEvaluator {
+    eval (node) {
+        <span class="hljs-keyword">var</span> props = {}
+        <span class="hljs-keyword">switch</span> (node.type) {
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"Integer"</span>:
+              console.log(<span class="hljs-string">"Integer with value:"</span>, node.<span class="hljs-keyword">value</span>)
+              props.<span class="hljs-keyword">value</span> = node.<span class="hljs-keyword">value</span>
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Integer(props)
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"Boolean"</span>:
+              props.<span class="hljs-keyword">value</span> = node.<span class="hljs-keyword">value</span>
+              console.log(<span class="hljs-string">"Boolean with value:"</span>, node.<span class="hljs-keyword">value</span>)
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> Boolean(props)
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"ExpressionStatement"</span>:
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.eval(node.expression)
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>
+    }
+}</code></pre> 
+ <p>eval 函数负责变量语法树节点，并根据节点信息执行相应动作。当它遍历的节点类型是ExpressionStatment时，它知道需要继续解析它的expression域，于是它递归调用eval函数，传入该对象的expression域，eval再次被调用是，传进来的就是IntegerLiteral对象，它的type域对应的就是”Integer”,于是代码读取它存储的数值5，然后创建一个Integer符号对象，把数值5存在里面。我们对boolean类型的解析逻辑跟整形的解析逻辑是一样的。</p> 
+ <p>接着，我们看看更复杂的表达式对应的节点如何解释执行。对于表达式:!true, -5, 他们就是我们前面几节所描述的前缀表达式，我们先看看前缀表达式对应的节点对象：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PrefixExpression</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Expression</span> {<!-- --></span>
+  constructor(props) {
+    <span class="hljs-keyword">super</span>(props)
+    <span class="hljs-keyword">this</span>.token = props.token
+    <span class="hljs-keyword">this</span>.operator = props.operator
+    <span class="hljs-keyword">this</span>.right = props.expression
+    <span class="hljs-keyword">var</span> s = <span class="hljs-string">"("</span> + <span class="hljs-keyword">this</span>.operator + <span class="hljs-keyword">this</span>.right.getLiteral() + <span class="hljs-string">" )"</span>
+    <span class="hljs-keyword">this</span>.tokenLiteral = s
+    <span class="hljs-keyword">this</span>.<span class="hljs-keyword">type</span> = <span class="hljs-string">"PrefixExpression"</span>
+  }
+}</code></pre> 
+ <p>其中的operator 代表着表达式前面的操作符，而right代表操作符后面的表达式，因此我们在解析前缀表达式节点时，需要先解析它的right对象，然后再根据不同的操作符采取不同的动作，因此相应代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs livecodeserver">class MonkeyEvaluator {
+    eval (node) {
+        var props = {}
+        <span class="hljs-keyword">switch</span> (node.type) {
+        ....
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"PrefixExpression"</span>:
+              var <span class="hljs-constant">right</span> = this.eval(node.<span class="hljs-constant">right</span>)
+              <span class="hljs-keyword">if</span> (this.isError(<span class="hljs-constant">right</span>)) {
+                <span class="hljs-constant">return</span> <span class="hljs-constant">right</span>
+              }
+
+              var obj =  this.evalPrefixExpression(node.operator, <span class="hljs-constant">right</span>)
+              console.<span class="hljs-built_in">log</span>(<span class="hljs-string">"eval prefix expression: "</span>, obj.inspect())
+              <span class="hljs-constant">return</span> obj
+        }
+
+        <span class="hljs-constant">return</span> <span class="hljs-constant">null</span>
+    }
+
+evalPrefixExpression(operator, <span class="hljs-constant">right</span>) {
+        <span class="hljs-keyword">switch</span> (operator) {
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"!"</span>:
+              <span class="hljs-constant">return</span> this.evalBangOperatorExpression(<span class="hljs-constant">right</span>)
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"-"</span>:
+              <span class="hljs-constant">return</span> this.evalMinusPrefixOperatorExpression(<span class="hljs-constant">right</span>)
+            default:
+              <span class="hljs-constant">return</span> this.newError(<span class="hljs-string">"unknown operator:"</span>, operator, <span class="hljs-constant">right</span>.type())
+        }
+    }
+
+    isError (obj) {
+        <span class="hljs-keyword">if</span> (obj !== <span class="hljs-constant">null</span>) {
+            <span class="hljs-constant">return</span> obj.type() === obj.ERROR_OBJ
+        }
+
+        <span class="hljs-constant">return</span> <span class="hljs-constant">false</span>
+    }
+
+    evalBangOperatorExpression(<span class="hljs-constant">right</span>) {
+        var props = {}
+        <span class="hljs-keyword">if</span> (<span class="hljs-constant">right</span>.type() === <span class="hljs-constant">right</span>.BOOLEAN_OBJ) {
+            <span class="hljs-keyword">if</span> (<span class="hljs-constant">right</span>.<span class="hljs-built_in">value</span> === <span class="hljs-constant">true</span>) {
+                props.<span class="hljs-built_in">value</span> = <span class="hljs-constant">false</span>
+            }
+
+            <span class="hljs-keyword">if</span> (<span class="hljs-constant">right</span>.<span class="hljs-built_in">value</span> === <span class="hljs-constant">false</span>) {
+                props.<span class="hljs-built_in">value</span> = <span class="hljs-constant">true</span>
+            }
+        }
+
+        <span class="hljs-keyword">if</span> (<span class="hljs-constant">right</span>.type() === <span class="hljs-constant">right</span>.NULL_OBJ) {
+            props.<span class="hljs-built_in">value</span> = <span class="hljs-constant">true</span>
+        }
+
+        <span class="hljs-constant">return</span> <span class="hljs-built_in">new</span> Boolean(props)
+    }
+
+    evalMinusPrefixOperatorExpression(<span class="hljs-constant">right</span>) {
+        <span class="hljs-keyword">if</span> (<span class="hljs-constant">right</span>.type() !== <span class="hljs-constant">right</span>.INTEGER_OBJ) {
+            <span class="hljs-constant">return</span> this.newError(<span class="hljs-string">"unknown operaotr:- "</span>, <span class="hljs-constant">right</span>.type())
+        }
+
+        var props = {}
+        props.<span class="hljs-built_in">value</span> = -<span class="hljs-constant">right</span>.<span class="hljs-built_in">value</span>
+        <span class="hljs-constant">return</span> <span class="hljs-built_in">new</span> Integer(props)
+    }
+
+    newError(msg, type) {
+        var props = {}
+        props.errMsg = msg + type
+        <span class="hljs-constant">return</span> <span class="hljs-built_in">new</span> Error(props)
+    }
+</code></pre> 
+ <p>从上面代码看出，在解析前缀表达式节点时，解析函数eval会先对节点的right值域进行解释执行，创建相应的符号对象，然后调用evalPrefixExpression()，在该函数中，它会根据节点的operator内容进行相应的处理。如果操作符是”!”,那么它调用evalBangOperatorExpression(),在这个函数里，它会对right解析后返回来的符号对象里面的value取反，如果操作符是”-“, 函数调用evalMinusPrefixOperatorExpression(),它会将right解析后返回的符号对象里的value做取负操作，如果操作符不属于这两种情况，那么代码返回错误信息。</p> 
+ <p>完成了节点的解释执行流程，我们需要触发这个流程，于是打开MonkeyCompilerIDE.js,添加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">onLexingClick () {
+      this<span class="hljs-preprocessor">.lexer</span> = new MonkeyLexer(this<span class="hljs-preprocessor">.inputInstance</span><span class="hljs-preprocessor">.getContent</span>())
+      this<span class="hljs-preprocessor">.parser</span> = new MonkeyCompilerParser(this<span class="hljs-preprocessor">.lexer</span>)
+      this<span class="hljs-preprocessor">.parser</span><span class="hljs-preprocessor">.parseProgram</span>()
+      this<span class="hljs-preprocessor">.program</span> = this<span class="hljs-preprocessor">.parser</span><span class="hljs-preprocessor">.program</span>
+      for (var i = <span class="hljs-number">0</span><span class="hljs-comment">; i &lt; this.program.statements.length; i++) {<!-- --></span>
+          console<span class="hljs-preprocessor">.log</span>(this<span class="hljs-preprocessor">.program</span><span class="hljs-preprocessor">.statements</span>[i]<span class="hljs-preprocessor">.getLiteral</span>())
+
+          //change here
+          this<span class="hljs-preprocessor">.evaluator</span><span class="hljs-preprocessor">.eval</span>(this<span class="hljs-preprocessor">.program</span><span class="hljs-preprocessor">.statements</span>[i])
+      }
+    }</code></pre> 
+ <p>上面代码执行后情况如下，在编辑框里输入如下语句：</p> 
+ <p><img src="img/1647416425284/-7095794020907965943.jpg" alt="这里写图片描述" title=""></p> 
+ <p>点击底下的parser按钮，代码会被语法进行，然后进入语法树节点的解析执行流程，代码运行后结果如下：</p> 
+ <p><img src="img/1647416425334/633974770785558152.jpg" alt="这里写图片描述" title=""></p> 
+ <p>表达式”!true”，它的值被解析成false, “-5”它的值被解析成整形-5，因此我们代码就能成功的执行了语句”!true”和”-5”。</p> 
+ <p>在后续的章节中，我们将详细研究后续表达式，例如a+b, a*(b+c);这类代码的解析执行，他们的处理过程要比本节前序表达式的处理过程复杂的多，我们也将使用一一拆解，分而治之的方式将难点分解，将难度降低，以便大家的掌握和理解。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416425409/6859167770150351108.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> reactjs开发自制编程语言编译器：实现变量绑定和函数调用</title>
+ <body> reactjs开发自制编程语言编译器：实现变量绑定和函数调用</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>在编程时，我们会初始化一个变量，给变量赋初值，例如下面语句：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">let</span> x = <span class="hljs-number">5</span>*<span class="hljs-number">5</span>;</code></pre> 
+ <p>上面代码被编译器解读后，变量x就会和数值25绑定在一起。下次使用到变量x时，编译器会读取它绑定的值，然后用于相关代码的执行，例如下面代码：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">let</span> y = x + <span class="hljs-number">5</span>;</code></pre> 
+ <p>编译器执行上面语句后，变量y就会跟数值30绑定起来，本节我们就先增加变量绑定的功能。</p> 
+ <p>变量绑定功能不难实现，我们只要创建一个哈希表，把变量名和它对应的数值关联起来即可，于是我们在MonkeyEvaluator.js中增加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">class</span> Enviroment {
+    constructor(props) {
+        <span class="hljs-keyword">this</span>.<span class="hljs-built_in">map</span> = {}
+    }
+    get(name) {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.<span class="hljs-built_in">map</span>[name]
+    }
+    <span class="hljs-built_in">set</span>(name, obj) {
+        <span class="hljs-keyword">this</span>.<span class="hljs-built_in">map</span>[name] = obj
+    }
+}</code></pre> 
+ <p>在类Enviroment中，代码创建了一个哈希表map，它提供两个接口，get接收变量名，然后把其对应的数值返回，set用来把变量名跟一个数值关联起来。在eval函数中，我们增加对let语句的解释执行，然后把let后面的变量跟等号后面的数值关联起来：</p> 
+ <pre class="prettyprint"><code class=" hljs scala">eval (node) {
+        <span class="hljs-keyword">var</span> props = {}
+        switch (node.<span class="hljs-keyword">type</span>) {
+        ....
+        <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MonkeyEvaluator</span> {<!-- --></span>
+    <span class="hljs-comment">// change 3</span>
+    constructor (props) {
+        <span class="hljs-keyword">this</span>.enviroment = <span class="hljs-keyword">new</span> Enviroment()
+    }
+    eval (node) {
+        <span class="hljs-keyword">var</span> props = {}
+        switch (node.<span class="hljs-keyword">type</span>) {
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"program"</span>:
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.evalProgram(node)
+              <span class="hljs-comment">// change 1</span>
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"LetStatement"</span>:
+              <span class="hljs-keyword">var</span> <span class="hljs-keyword">val</span> = <span class="hljs-keyword">this</span>.eval(node.value)
+              <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isError(<span class="hljs-keyword">val</span>)) {
+                  <span class="hljs-keyword">return</span> <span class="hljs-keyword">val</span>
+              }
+
+              <span class="hljs-comment">// change 4</span>
+              <span class="hljs-keyword">this</span>.enviroment.set(node.name.tokenLiteral, <span class="hljs-keyword">val</span>)
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">val</span>
+              ...
+              }
+              ...
+}</code></pre> 
+ <p>当解析器解析到LetStatement节点时，它执行等号右边表达式，获取要赋值给变量的数值，例如对前面的let语句let x = 25 * 25;代码中的node.value对应的就是等号右边的”25*25”,解析器执行右边表达式后得到数值25,然后调用set接口，把变量名”x”与数值25关联到哈希表中。</p> 
+ <p>一旦变量和具体数值关联后，编译器在读取变量名时就可以查询其对应的数值，为了实现该功能，我们还得在eval函数中增添相应代码：</p> 
+ <pre class="prettyprint"><code class=" hljs scala">eval (node) {
+        <span class="hljs-keyword">var</span> props = {}
+        switch (node.<span class="hljs-keyword">type</span>) {
+        ....
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"Identifier"</span>:
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.evalIdentifier(node, <span class="hljs-keyword">this</span>.enviroment)
+        ....
+}
+....
+<span class="hljs-comment">//change 6</span>
+    evalIdentifier(node, env) {
+        <span class="hljs-keyword">var</span> <span class="hljs-keyword">val</span> = env.get(node.tokenLiteral)
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">val</span> === undefined) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.newError(<span class="hljs-string">"identifier no found:"</span>+node.name)
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">val</span>
+    }</code></pre> 
+ <p>当编译器读取到一个变量名时，它会调用evalIdentifier函数查找变量绑定的数值，该函数直接调用Eviroment类的get接口，传入变量名把其绑定的数值拿出来。有了上面代码后，我们就可以执行下面的语句：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">let</span> x = <span class="hljs-number">10</span>;
+<span class="hljs-keyword">if</span> (x) {
+  <span class="hljs-number">11</span>;
+}</code></pre> 
+ <p>把上面代码输入编辑框，点击Parsing后得到如下执行结果： <br> <img src="img/1647416422072/7325495424393643773.jpg" alt="这里写图片描述" title=""> <br> 根据结果来看，编译器能够解读变量x，把它当做数值10，于是if条件成立，编译器执行大括号里面的代码，也是就解读了常量值11.</p> 
+ <p>实现函数调用 <br> 当我们完成函数调用功能后，我们的编译器就能执行如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">let</span> addThree = <span class="hljs-function"><span class="hljs-keyword">fn</span>(</span>x){<!-- --><span class="hljs-keyword">return</span> x+<span class="hljs-number">3</span>;}
+addThree(<span class="hljs-number">3</span>)</code></pre> 
+ <p>上面代码被编译器执行后，add函数调用会返回结果6.而且编译器还能执行更复杂的函数间套调用，例如：</p> 
+ <pre class="prettyprint"><code class=" hljs mizar"><span class="hljs-keyword">let</span> callTwoTimes = fn(x ,<span class="hljs-keyword">func</span>) {
+  <span class="hljs-keyword">func</span>(<span class="hljs-keyword">func</span>(x));  
+};
+callTwoTimes(3)</code></pre> 
+ <p>上面代码执行后，编译器将会返回9。 <br> 为了实现上面功能，我们需要做两件事，一是增加函数对应的符号对象，而是在解析函数eval中增加相应功能。首先我们看看如何构建函数的符号对象。在Monkey语言中，函数跟常量一样，可以直接赋值给变量，于是它就能跟变量绑定起来，于是函数就可以像变量一样作为参数进行传递，或作为一个函数调用的返回值，首先我们先增加函数的符号对象：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-comment">//change 8</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctionLiteral</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor(props) {
+        <span class="hljs-keyword">this</span>.token = props.token  <span class="hljs-comment">//对应关键字fn</span>
+        <span class="hljs-keyword">this</span>.parameters = props.identifiers
+        <span class="hljs-keyword">this</span>.blockStatement = props.blockStatement
+    }
+
+    <span class="hljs-keyword">type</span>() {
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">this</span>.FUNCTION_LITERAL
+    }
+
+    inspect() {
+        s = <span class="hljs-string">"fn("</span> 
+        <span class="hljs-keyword">var</span> identifiers = []
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-keyword">this</span>.paremeters.length; i++) {
+            identifiers[i] = <span class="hljs-keyword">this</span>.parameters[i].tokenLiteral
+        }
+        s += identifiers.join(<span class="hljs-string">','</span>)
+        s += <span class="hljs-string">"){\n"</span>
+        s += <span class="hljs-keyword">this</span>.blockStatement.tokenLiteral
+        s += <span class="hljs-string">"\n}"</span>
+    }
+}
+
+<span class="hljs-comment">//change 8</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctionCall</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseObject</span> {<!-- --></span>
+    constructor(props) {
+        <span class="hljs-keyword">this</span>.identifier = props.identifier
+        <span class="hljs-keyword">this</span>.blockStatement = props.blockStatement
+        <span class="hljs-keyword">this</span>.eviroment = <span class="hljs-keyword">new</span> Enviroment()
+    }
+}</code></pre> 
+ <p>我们定义函数调用对象FunctionCall时，专门配置一个环境对象，这样函数中的变量绑定能跟函数外的执行环境分离开来。然后我们在解析函数eval中增加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs coffeescript">eval (node) {
+        <span class="hljs-reserved">var</span> props = {}
+        <span class="hljs-keyword">switch</span> (node.type) {
+        ...
+        <span class="hljs-regexp">//</span>change <span class="hljs-number">9</span>
+            <span class="hljs-reserved">case</span> <span class="hljs-string">"FunctionLiteral"</span>:
+            <span class="hljs-reserved">var</span> props = {}
+            props.token = node.token
+            props.identifiers = node.parameters
+            props.blockStatement = node.body
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> FunctionCall(props)
+            <span class="hljs-reserved">case</span> <span class="hljs-string">"CallExpression"</span>:
+            <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"execute a function with content:"</span>, 
+                node.<span class="hljs-reserved">function</span>.tokenLiteral)
+
+            <span class="hljs-reserved">var</span> functionCall = <span class="hljs-keyword">this</span>.eval(node.<span class="hljs-reserved">function</span>)
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isError(functionCall)) {
+                <span class="hljs-keyword">return</span> functionCall
+            }
+
+            <span class="hljs-built_in">console</span>.log(<span class="hljs-string">"evalute function call params:"</span>)
+            <span class="hljs-reserved">var</span> args = <span class="hljs-keyword">this</span>.evalExpressions(node.arguments)
+            <span class="hljs-keyword">if</span> (args.length === <span class="hljs-number">1</span> &amp;&amp; <span class="hljs-keyword">this</span>.isError(args[<span class="hljs-number">0</span>])) {
+                <span class="hljs-keyword">return</span> args[<span class="hljs-number">0</span>]
+            }
+
+            <span class="hljs-keyword">for</span> (<span class="hljs-reserved">var</span> i = <span class="hljs-number">0</span>; i &lt; args.length; i++) {
+                <span class="hljs-built_in">console</span>.log(args[i].inspect())
+            }
+
+            <span class="hljs-keyword">return</span> functionCall
+            ....
+            }
+            ....
+}
+
+<span class="hljs-regexp">//</span>change <span class="hljs-number">10</span>
+evalExpressions(exps) {
+        <span class="hljs-reserved">var</span> result = []
+        <span class="hljs-keyword">for</span>(<span class="hljs-reserved">var</span> i = <span class="hljs-number">0</span>; i &lt; exps.length; i++) {
+            <span class="hljs-reserved">var</span> evaluated = <span class="hljs-keyword">this</span>.eval(exps[i])
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isError(evaluated)) {
+                <span class="hljs-keyword">return</span> evaluated
+            }
+            result[i] = evaluated
+        }
+
+        <span class="hljs-keyword">return</span> result
+    }</code></pre> 
+ <p>添加上面代码后，在编辑框里输入如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">let</span> add = <span class="hljs-function"><span class="hljs-keyword">fn</span>(</span>x,y){x+y;};
+add(<span class="hljs-number">2</span>+<span class="hljs-number">2</span>,<span class="hljs-number">5</span>+<span class="hljs-number">5</span>);</code></pre> 
+ <p>然后点击底下”Parsing”按钮，于是我们刚才添加的代码就会运行起来。当语法解析器读取语句”let add = fn(x,y){x+y;};”时会构造一个LetStatement语法节点，在读取等号右边的”fn(x,y){x+y;}”时会构造一个FunctionLiteral语法节点，于是构建的LetStatement语法节点中，其name域为”add”,value域对应的就是FunctionLiteral语法节点。当该语法节点传入eval函数进行解释执行时，读取到FuntioncLiteral语法节点，执行就会进入前面添加的“FunctionLiteral”分支，在该分支中执行器构建一个FunctionCall符号对象，然后代码返回到LetStatementfen分支后，将变量名add和FunctionCall符号对象在哈希表中关联起来。</p> 
+ <p>接着语法解析器在解读代码”add(2+2,5+5)”时，它会构造一个CallExpression语法节点，然后该节点会传入解释执行函数eval,从而进入该函数的”CallExpression”分支，在该分支的代码中，通过函数变量名add找到上一步创建的FunctionCall符号对象，从中拿到函数调用时的参数表达式语法节点，接着调用evalExpressions函数解释执行参数表达式，从而获得最后要传入函数的结果，也就是evalExpressions会将”2+2”,”5+5”解释执行，得到结果4和10，这两个值将会作为调用参数，在执行函数add时传入。</p> 
+ <p>完成上面代码并执行后，得到结果如下： <br> <img src="img/1647416422178/-1459646657108837428.jpg" alt="这里写图片描述" title=""> <br> 从输出看，我们的编译器能够识别”add(2+2,5+5)”是函数调用，同时它把参数表达式“2+2”和”5+5“解释执行后得到4和10，并把这两个值作为函数的真正调用参数。</p> 
+ <p>执行输入参数表达式，确定输入参数后，如何真正“调用”函数呢，显然我们需要把函数内的代码一行行的执行。有一个问题需要确定的是，函数被执行时，它的变量绑定环境对象必须和调用函数代码所对应的变量绑定对象不同，要不然函数执行时就会产生错误，例如下面代码：</p> 
+ <pre class="prettyprint"><code class=" hljs coffeescript"><span class="hljs-reserved">let</span> i = <span class="hljs-number">5</span>;
+k = <span class="hljs-number">6</span>
+fn() {
+    <span class="hljs-reserved">let</span> i = <span class="hljs-number">10</span>;
+    <span class="hljs-built_in">print</span>(i);
+    <span class="hljs-built_in">print</span>(k)
+}();
+<span class="hljs-built_in">print</span>(i) </code></pre> 
+ <p>上面代码有两个同名变量，第一个变量i跟数值5绑定，第二个变量i在函数体内，跟数值10绑定，函数体内的print(i)输出结果是10，最后一句print(i)输出结果是5，因此两个同名变量i必须跟不同的数值绑定，于是两个同名变量i得在不同的Enviroment对象中实现变量绑定。由此我们要实现变量绑定环境的切换，在函数fn外部有一个变量绑定环境，在那里变量i和5绑定，变量k和6绑定，在fn内部又有一个变量绑定环境，在那里，一个新的变量i与10绑定，如下图： <br> <img src="img/1647416422278/-801302620016182856.jpg" alt="这里写图片描述" title=""> <br> 当程序没有调用fn前，程序的绑定环境是第一个方块，当程序调用fn后，绑定环境变为第二个方块，当fn执行时访问到变量k，这时在第二个方块代表的绑定环境中找不到对应关系，于是编译器在执行代码时跑到上一个绑定环境去查找。为了实现该功能，我们添加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs actionscript"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Enviroment</span> {<!-- --></span>
+    constructor(props) {
+        <span class="hljs-keyword">this</span>.map = {}
+        <span class="hljs-comment">//change 10</span>
+        <span class="hljs-keyword">this</span>.outer = <span class="hljs-literal">undefined</span>
+    }
+    <span class="hljs-keyword">get</span>(name) {
+        <span class="hljs-keyword">var</span> obj = <span class="hljs-keyword">this</span>.map[name]
+        <span class="hljs-keyword">if</span> (obj != <span class="hljs-literal">undefined</span>) {
+            <span class="hljs-keyword">return</span> obj 
+        }
+        <span class="hljs-comment">//change 12 在当前绑定环境找不到变量时，通过回溯</span>
+        <span class="hljs-comment">//查找外层绑定环境是否有给定变量</span>
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.outer != <span class="hljs-literal">undefined</span>) {
+            obj = <span class="hljs-keyword">this</span>.outer.<span class="hljs-keyword">get</span>(name)
+        }
+
+        <span class="hljs-keyword">return</span> obj 
+    }
+    <span class="hljs-keyword">set</span>(name, obj) {
+        <span class="hljs-keyword">this</span>.map[name] = obj
+    }
+}
+</code></pre> 
+ <p>Enviroment类就是用来将变量与数值绑定的“环境”，get接口根据输入的变量名在哈希表中查询其对应的数值，set用于将变量名与给定数值绑定起来，其中的outer用于将不同的绑定环境连接起来，例如上面讲过的函数调用例子，在函数调用前代码执行对应一个Enviroment对象，当函数调用后，在执行函数体内的语句时对应一个新的Enviroment对象，后者用outer指针跟前者关联起来，outer就如上图两个方块间连接起来的箭头。当在函数体内查找一个变量与数值的对应关系时，如果在当前的绑定环境中找不到，就通过outer指针到上一个绑定环境去找，例如在上面的示例代码例子里，函数执行时要访问变量k的值，这个变量在函数执行时的绑定环境里是找不到的，但是上面实现的get函数会通过outer进入上一个绑定环境然后再查询k与数值的绑定，这时候编译器就能找到变量k绑定的数值。</p> 
+ <p>接着我们在MonkeyEvaluator里面先增加对Enviroment变量的创建：</p> 
+ <pre class="prettyprint"><code class=" hljs actionscript"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">MonkeyEvaluator</span> {<!-- --></span>
+    <span class="hljs-comment">// change 3</span>
+    constructor (props) {
+        <span class="hljs-keyword">this</span>.enviroment = <span class="hljs-keyword">new</span> Enviroment()
+    }
+
+    <span class="hljs-comment">// change 11</span>
+    newEnclosedEnvironment(outerEnv) {
+        <span class="hljs-keyword">var</span> env = <span class="hljs-keyword">new</span> Enviroment()
+        env.outer = outerEnv
+        <span class="hljs-keyword">return</span> env
+    }
+    ....
+}</code></pre> 
+ <p>然后再解析LetStatement的分支处理中，增加变量与数值绑定的操作：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">eval (node) {
+        <span class="hljs-keyword">var</span> props = {}
+        <span class="hljs-keyword">switch</span> (node.type) {
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"LetStatement"</span>:
+              <span class="hljs-keyword">var</span> val = <span class="hljs-keyword">this</span>.eval(node.<span class="hljs-keyword">value</span>)
+              <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isError(val)) {
+                  <span class="hljs-keyword">return</span> val
+              }
+
+              <span class="hljs-comment">// change 4</span>
+              <span class="hljs-keyword">this</span>.enviroment.<span class="hljs-keyword">set</span>(node.name.tokenLiteral, val)
+              <span class="hljs-keyword">return</span> val
+              <span class="hljs-comment">//change 5</span>
+            <span class="hljs-keyword">case</span> <span class="hljs-string">"Identifier"</span>:
+              console.log(<span class="hljs-string">"variable name is:"</span> + node.tokenLiteral)
+              <span class="hljs-keyword">var</span> <span class="hljs-keyword">value</span> = <span class="hljs-keyword">this</span>.evalIdentifier(node, <span class="hljs-keyword">this</span>.enviroment)
+              console.log(<span class="hljs-string">"it is binding value is "</span> + <span class="hljs-keyword">value</span>.inspect())
+              <span class="hljs-keyword">return</span> <span class="hljs-keyword">value</span>
+     ....    
+}</code></pre> 
+ <p>当编译器执行let赋值语句时，它会调用Enviroment类的set函数将变量名与数值在哈希表中关联起来，当编译器读取到一个变量时，编译器在解释执行时进入”Identifier”分支，然后编译器从Enviroment的哈希表中把变量对应的数值读取出来。完成上面代码后，我们在编辑框中输入如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs bash"><span class="hljs-built_in">let</span> x = <span class="hljs-number">10</span>;
+x;</code></pre> 
+ <p>点击parsing按钮后，得到结果如下：</p> 
+ <p><img src="img/1647416422315/2295616728350871219.jpg" alt="这里写图片描述" title=""></p> 
+ <p>由此可见，我们的编译器在执行代码时，遇到变量x后，它从绑定环境中读取到变量x对应的数值是10.接下来我们看看如何执行函数调用。在”CallExpression”分支中，我们添加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"><span class="hljs-keyword">case</span> <span class="hljs-string">"CallExpression"</span>:
+....
+<span class="hljs-comment">// change 12 执行函数前保留当前绑定环境</span>
+            <span class="hljs-keyword">var</span> oldEnviroment = <span class="hljs-keyword">this</span>.enviroment
+            <span class="hljs-comment">//为函数调用创建新的绑定环境</span>
+            functionCall.enviroment = <span class="hljs-keyword">this</span>.newEnclosedEnvironment(oldEnviroment)
+            <span class="hljs-comment">//设置新的变量绑定环境</span>
+            <span class="hljs-keyword">this</span>.enviroment = functionCall.enviroment
+            <span class="hljs-comment">//将输入参数名称与传入值在新环境中绑定</span>
+            <span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; functionCall.identifiers.length; i++) {
+                <span class="hljs-keyword">var</span> name = functionCall.identifiers[i].tokenLiteral
+                <span class="hljs-keyword">var</span> <span class="hljs-keyword">val</span> = args[i]
+                <span class="hljs-keyword">this</span>.enviroment.set(name, <span class="hljs-keyword">val</span>)
+            }
+            <span class="hljs-comment">//执行函数体内代码</span>
+            <span class="hljs-keyword">var</span> result = <span class="hljs-keyword">this</span>.eval(functionCall.blockStatement)
+            <span class="hljs-comment">//执行完函数后，里面恢复原有绑定环境</span>
+            <span class="hljs-keyword">this</span>.enviroment = oldEnviroment
+            <span class="hljs-keyword">if</span> (result.<span class="hljs-keyword">type</span>() === result.RETURN_VALUE_OBJECT) {
+                console.log(<span class="hljs-string">"function call return with :"</span>,
+                    result.valueObject.inspect())
+                <span class="hljs-keyword">return</span> result.valueObject
+            }
+
+            <span class="hljs-keyword">return</span> result</code></pre> 
+ <p>在执行被调函数的代码前，我们先把当前绑定环境缓存在oldEnviroment,然后newEnclosedEnvironment创建新的执行环境，该函数在创建新的Enviroment变量时，会把其outer指针指向oldEnviroment绑定对象，这就像前面示例图中，后一个方块伸出一个箭头指向前面那个方块。</p> 
+ <p>然后编译器将绑定环境对象设置成新生成的Enviroment对象，然后将函数参数变量名和参数值在新绑定环境对象中关联起来，然后执行“this.eval(functionCall.blockStatement)”,这条语句的执行相当于编译器解释执行函数体内的代码，注意这时候解释器的绑定环境变量已经变了。如果函数体内有return语句产生返回值的话，返回值对象会存储在代码里的result变量里，然后解释器将返回结果打印出来。有了上面代码后，我们在编辑框里输入如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs rust"><span class="hljs-keyword">let</span> x = <span class="hljs-number">5</span>;
+<span class="hljs-keyword">let</span> k = <span class="hljs-number">6</span>;
+<span class="hljs-keyword">let</span> add = <span class="hljs-function"><span class="hljs-keyword">fn</span>(</span>x,y){
+  <span class="hljs-keyword">let</span> i = <span class="hljs-number">10</span>;
+  <span class="hljs-keyword">return</span> x + y + i + k;
+  };
+  add(<span class="hljs-number">1</span>,<span class="hljs-number">2</span>);</code></pre> 
+ <p>然后点击parsing按钮，编译器解释执行上面代码后，情况如下：</p> 
+ <p><img src="img/1647416422503/-3838693794215103470.jpg" alt="这里写图片描述" title=""></p> 
+ <p>从运行结果看，add输入参数是1，2，执行后返回结果是19，这意味着函数体内的变量i对应的值是10而不是外层变量i对应的5，由此我们编译器对代码执行的结果是正确的，它能将变量与正确的数值对应起来，在函数体内的绑定环境里并没有定义变量k，编译器在执行时，会通过当前绑定环境Enviroment的outer指针找到上一个绑定环境，从而找到变量k对应的数值。</p> 
+ <p>至此我们的编译器就具备了变量绑定功能和函数的调用执行功能。</p> 
+ <p><a href="http://study.163.com/provider-search?keyword=Coding%E8%BF%AA%E6%96%AF%E5%B0%BC">更详细的讲解和代码调试演示过程，请点击链接</a></p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416422630/1228495281940181913.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发编译器：把结构体数组编译成java字节码</title>
+ <body> java开发编译器：把结构体数组编译成java字节码</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>由于本节代码逻辑有点复杂，请参看视频<a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a> 以便加深理解和掌握</p> 
+ <p>上一节，我们在C程序中引入结构体，在编译成java字节码时，我们把结构体转换成一个只包含公有数据成员的类，于是我们把含有结构体的C代码成功编译成了java字节码，这节我们要在上一节的基础上加大难度，把结构体变成结构体数组，看看我们的编译器是如何把含有结构体数组的C代码编译成java字节码的。完成本节代码后，我们的编译器能把下面C代码编译成java字节码并能在虚拟机上正确运行：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">struct</span> CTag {
+    <span class="hljs-keyword">int</span> x;
+    <span class="hljs-keyword">char</span> c;
+};
+
+<span class="hljs-keyword">void</span> main() {
+   <span class="hljs-keyword">struct</span> CTag myTag[<span class="hljs-number">5</span>];
+   myTag[<span class="hljs-number">2</span>].x = <span class="hljs-number">1</span>;
+
+   <span class="hljs-built_in">printf</span>(<span class="hljs-string">"the x value of second struct object is :%d"</span>, myTag[<span class="hljs-number">2</span>].x);
+}
+
+end</code></pre> 
+ <p>我们把C语言中的结构体等价于java虚拟机上的一个类，那么结构体数组自然就可以对应于java上的类数组，由此我们先看看jvm提供了那些指令让我们操作类数组，以及这些指令的用法。</p> 
+ <p>在jvm上，要想生成一个类数组，需要用到的指令是anewarray,在使用这个指令之前，我们需要在堆栈上压入一个数值，用于表示要生成的数组长度。假定有一行java代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-built_in">String</span>[] ss = <span class="hljs-keyword">new</span> <span class="hljs-built_in">String</span>[<span class="hljs-number">5</span>];</code></pre> 
+ <p>要把上面的代码转换成虚拟机字节码时，我们需要这么做，首先把数组的元素个数5压入到堆栈，然后使用anewarray 指令在堆栈上创建一个String数组对象，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs javascript">sipush <span class="hljs-number">5</span>
+anewarray java/lang/<span class="hljs-built_in">String</span></code></pre> 
+ <p>anewarray 指令后面跟着类的类型，上面的指令在堆栈上生成了一个字符串数组对象，字符串含有5个元素，每个元素是一个指向heap上String类型实例的引用，由于我们只是生成了一个含有5个元素的数组，jvm会自动把数组中的五个元素初始化为null,上面字节码执行后，虚拟机的堆栈情况如下： <br> <img src="img/1647416414229/-8208883648861371133.jpg" alt="这里写图片描述" title=""></p> 
+ <p>注意到，anewarray 指令在堆栈顶部生成了一个引用，这个引用指向了一个存在heap里的一个含有5个字符串类型的数组实例，并且实例中的每个元素都指向null.</p> 
+ <p>要想使用字符串数组，我们就必须使得数组中的元素都指向一个字符串实例，这就需要使用到指令aastore, 和 aaload, 例如我们想让字符串数组的第0和第1个元素分别指向字符串”hello”和”world”, 那么我们需要确保anewarray生成的字符串数组对象在堆栈顶部，接着把数组元素的下标压入堆栈，最后再把具体字符串压入堆栈顶部，然后执行一次aastore指令，于是要想让ss[0]指向字符串”hello”，相应的指令如下(承接上面代码，于是字符串数组对象已经存在堆栈顶部)：</p> 
+ <pre class="prettyprint"><code class=" hljs bash">astore <span class="hljs-number">0</span>
+aload  <span class="hljs-number">0</span>
+sipush <span class="hljs-number">0</span>
+ldc <span class="hljs-string">"hello"</span>
+aastore</code></pre> 
+ <p>由于ss[0]对象已经存在堆栈上，所以指令astore 0先把它存储到局部变量队列的第0个位置，然后用aload 0再次把它从局部队列加载到堆栈顶部，这么做看似多此一举，但这对后面的指令有作用。然后把要赋值的数组元素下标放到堆栈顶部，也就对应sipush 0， 最后把数组元素0要引用的字符串”hello”压到堆栈顶部，因此在执行指令aastore前，堆栈情况如下： <br> stack: ss[0] “hello” 0 <br> 执行指令aastore后，元素ss[0]就不再是null了，它会指向字符串”hello”。指令aastore执行后，堆栈上所有元素会被清空。为了把字符串数组下标为1的元素指向字符串”world”,我们需要把字符串数组对象重新加载到堆栈上，所以需要执行指令aload 0, 接着把下标1压入堆栈，最后把字符串”world”压入堆栈，然后再次执行aastore指令，相关代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs bash">aload <span class="hljs-number">0</span>
+sipush <span class="hljs-number">0</span>
+ldc <span class="hljs-string">"world"</span>
+aastore</code></pre> 
+ <p>上面两段代码执行后，堆栈情况如下： <br> <img src="img/1647416414292/-5820971863375952569.jpg" alt="这里写图片描述" title=""></p> 
+ <p>既然数组的元素0和1都已经指向了两个有效的字符串，如果程序想要通过这两个数组元素获取他们指向的字符串，那么就需要使用指令aaload,例如要想访问ss[0]执行的字符串”hello”，那么我们需要把字符串数组对象加载到堆栈顶部，燃爆把元素下标压入堆栈，然后执行aaload指令，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs ">aload 0
+sipush 0
+aaload</code></pre> 
+ <p>上面代码执行后，堆栈顶部存储的是一个String类型的引用，这个引用指向存储在Heap里面的字符串实例”hello”。基于这些原理，我们就可以把C语言中含有结构体数组的代码编译成java字节码了，我们完全可以照猫画虎，把上面的String对象换成结构体对象就可以了。</p> 
+ <p>回到前面的C语言代码，对照上面的原理，我们看看如何把含有结构体数组的C语言代码编译成字节码。编译器解读代码时，当解读到这一句：struct CTag myTag[5];，它会创建一个Symbol对象，该对象对应的变量名称为myTag,并记录下，它是一个含有5个元素的数组。</p> 
+ <p>当编译器读取语句：myTag[2].x = 1;时，它会使用anewarray指令生成一个CTag类的数组，按照前面讲过的指令用法，我们的编译器会产生如下指令： <br> (代码片段1）</p> 
+ <pre class="prettyprint"><code class=" hljs ">sipush  5
+anewarray   CTag
+astore  0</code></pre> 
+ <p>同时编译器此时知道，代码想对数组中的第二个对象中的x成员赋值为1，前面讲过，anewarray 指令只是生成了数组对象，数组中的每个元素会被初始化为null,此时要对第二个元素指向的对象进行赋值，那么就必须为第二个元素生成一个CTag类的实例，于是编译器要接着生成如下指令，（代码片段二）：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    <span class="hljs-keyword">new</span> CTag
+    dup
+    invokespecial   CTag/&lt;init&gt;()V
+    aastore</code></pre> 
+ <p>上面指令把CTag类型数组对象加载到堆栈上后，把数组元素的下标2压入堆栈，然后创建一个CTag实例对象，初始化后，通过aastore指令把该对象的引用存入到数组对象的第二个元素。</p> 
+ <p>接着代码需要对第二个元素指向的实例所包含的成员x赋值，于是编译器需要生成指令，把数组第二个元素引用的实例加载到堆栈上，然后使用上一节讲过的方法对类成员赋值，于是它会产生如下指令，（代码片段3）：</p> 
+ <pre class="prettyprint"><code class=" hljs mathematica">    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    aaload
+    sipush  <span class="hljs-number">1</span>
+    putfield    CTag/x <span class="hljs-keyword">I</span></code></pre> 
+ <p>aload 0 把数组对象加载到堆栈后，压入要访问的元素下标2，通过aaload指令把元素二引用的类实例加载到堆栈上，使用上节讲过的指令修改类实例的成员变量。</p> 
+ <p>最后编译器解读到语句：printf(“the x value of second struct object is :%d”, myTag[2].x); ，这条语句中，我们需要读取数组第二个元素指向实例的类成员x,那么编译器需要生成指令，把它加载到堆栈上，然后使用上一节的办法，读取类实例的成员变量值，于是会生成如下代码（指令片段4）：</p> 
+ <pre class="prettyprint"><code class=" hljs mathematica">    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    aaload
+    getfield    CTag/x <span class="hljs-keyword">I</span></code></pre> 
+ <p>上面指令先把数组对象加载到堆栈上，然后把要访问的数值元素下标2压到堆栈，接着使用aaload指令把元素2指向的类实例加载到堆栈上，然后使用指令getfield 获取该实例成员变量x 的值。</p> 
+ <p>按照上面描述的指令生成步骤，我们要对编译器做相应代码修改。在解析语句myTag[2].x = 1;时，代码会进入到UnaryNodeExecutor.java中，于是我们做如下代码修改：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">case CGrammarInitializer<span class="hljs-preprocessor">.Unary</span>_LB_Expr_RB_TO_Unary:
+            child = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">0</span>)<span class="hljs-comment">;</span>
+            symbol = (Symbol)child<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>)<span class="hljs-comment">;</span>
+
+            child = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span>
+            int index = (Integer)child<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span>
+
+            try {
+                Declarator declarator = symbol<span class="hljs-preprocessor">.getDeclarator</span>(Declarator<span class="hljs-preprocessor">.ARRAY</span>)<span class="hljs-comment">;</span>
+                if (declarator != null) {
+
+                    Object val = declarator<span class="hljs-preprocessor">.getElement</span>(index)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, val)<span class="hljs-comment">;</span>
+                    ArrayValueSetter setter = new ArrayValueSetter(symbol, index)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.SYMBOL</span>, setter)<span class="hljs-comment">;</span>
+                    root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.TEXT</span>, symbol<span class="hljs-preprocessor">.getName</span>())<span class="hljs-comment">; </span>
+
+                    //create array object on jvm
+                    if (symbol<span class="hljs-preprocessor">.getSpecifierByType</span>(Specifier<span class="hljs-preprocessor">.STRUCTURE</span>) == null) {
+                        //如果是结构体数组，这里不做处理，留给下一步处理
+                        ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.createArray</span>(symbol)<span class="hljs-comment">;</span>
+                        ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.readArrayElement</span>(symbol, index)<span class="hljs-comment">;</span>
+                    }
+                }
+                ....</code></pre> 
+ <p>当编译器解析到数组读取时会执行上面代码，同时生成与数组读取相关的jvm指令，这里我们先判断读取的数组是否是结构体，如果是，那么就不能直接生成数组读取指令。执行完上面代码后，又会进入下面的代码进行执行：</p> 
+ <pre class="prettyprint"><code class=" hljs scala"> <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_StructOP_Name_TO_Unary:
+            <span class="hljs-comment">/*
+             * 当编译器读取到myTag.x 这种类型的语句时，会走入到这里
+             */</span>
+            child = root.getChildren().get(<span class="hljs-number">0</span>);
+            String fieldName = (String)root.getAttribute(ICodeKey.TEXT);
+            Object <span class="hljs-class"><span class="hljs-keyword">object</span> = <span class="hljs-title">child</span>.<span class="hljs-title">getAttribute</span><span class="hljs-params">(ICodeKey.SYMBOL)</span>;</span>
+            boolean isStructArray = <span class="hljs-keyword">false</span>;
+
+            <span class="hljs-keyword">if</span> (<span class="hljs-class"><span class="hljs-keyword">object</span> <span class="hljs-title">instanceof</span> <span class="hljs-title">ArrayValueSetter</span>) {<!-- --></span>
+                <span class="hljs-comment">//这里表示正在读取结构体数组,先构造结构体数组</span>
+                symbol = getStructSymbolFromStructArray(<span class="hljs-keyword">object</span>);
+                symbol.addValueSetter(<span class="hljs-keyword">object</span>);
+                isStructArray = <span class="hljs-keyword">true</span>;
+            } <span class="hljs-keyword">else</span> {
+                symbol = (Symbol)child.getAttribute(ICodeKey.SYMBOL);
+            }
+        ....</code></pre> 
+ <p>当编译器读取到类似myTag.x这样类型的代码时，它知道此时程序正在对结构体进行处理，于是会进入到上面的代码，由于当代码需要读取数组时，编译器都会为数组的读写构造一个ArrayValueSetter对象，上面代码处理的是结构体的读写，同时编译器又发现传过来的对象是一个ArrayValueSetter实例，于是编译器就会明白，当前处理的是一个结构体数组对象，然后代码会调用getStructSymbolFromStructArray,这个函数的作用是为结构体数组下标为2的元素生成一个结构体对象实例，并且生成前面讲过的指令片段1，我们看看该函数的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">private</span> Symbol <span class="hljs-title">getStructSymbolFromStructArray</span>(Object <span class="hljs-keyword">object</span>) {
+        ArrayValueSetter vs = (ArrayValueSetter)<span class="hljs-keyword">object</span>;
+        Symbol symbol = vs.getSymbol();
+        <span class="hljs-keyword">int</span> idx = vs.getIndex();
+        Declarator declarator = symbol.getDeclarator(Declarator.ARRAY);
+        <span class="hljs-keyword">if</span> (declarator == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+        }
+
+        ProgramGenerator.getInstance().createStructArray(symbol);
+
+        Symbol <span class="hljs-keyword">struct</span> = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            <span class="hljs-keyword">struct</span> = (Symbol)declarator.getElement(idx);
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            <span class="hljs-comment">// TODO Auto-generated catch block</span>
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">struct</span> == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">struct</span> = symbol.copy();
+            <span class="hljs-keyword">try</span> {
+                declarator.addElement(idx, (Object)<span class="hljs-keyword">struct</span>);
+                <span class="hljs-comment">//通过指令为数组中的某个下标处创建结构体实例</span>
+                ProgramGenerator.getInstance().createInstanceForStructArray(symbol, idx);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+            }
+        }
+
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">struct</span>;
+    }</code></pre> 
+ <p>该函数先为myTag生成一个同类型的结构体Symbol对象，其中代码执行了语句 <br> ProgramGenerator.getInstance().createStructArray(symbol); <br> 这条语句的作用是，生成前面说过的指令片段1，同时上面代码还执行了语句： <br> ProgramGenerator.getInstance().createInstanceForStructArray(symbol, idx); <br> 它的作用是生成指令片段2.这两个函数的具体实现，在后面我们才罗列出来，代码执行完后，回到getStructSymbolFromStructArray函数的调用处继续往下执行：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">....
+//先把结构体变量的作用范围设置为定义它的函数名
+            if (isStructArray == true) {
+                //把结构体数组symbol对象的作用域范围设置为包含它的函数
+                ArrayValueSetter vs = (ArrayValueSetter)object<span class="hljs-comment">;</span>
+                Symbol structArray = vs<span class="hljs-preprocessor">.getSymbol</span>()<span class="hljs-comment">;</span>
+                structArray<span class="hljs-preprocessor">.addScope</span>(ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.getCurrentFuncName</span>())<span class="hljs-comment">;</span>
+            } else {
+                symbol<span class="hljs-preprocessor">.addScope</span>(ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.getCurrentFuncName</span>())<span class="hljs-comment">;</span>
+            }
+            //如果是第一次访问结构体成员变量,那么将结构体声明成一个类
+            ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.putStructToClassDeclaration</span>(symbol)<span class="hljs-comment">;</span>
+  ....
+  <span class="hljs-comment">/*
+             * 假设当前解析的语句是myTag.x, 那么args对应的就是变量x
+             * 通过调用setStructParent 把args对应的变量x 跟包含它的结构体变量myTag
+             * 关联起来
+             */</span>
+            Symbol args = symbol<span class="hljs-preprocessor">.getArgList</span>()<span class="hljs-comment">;</span>
+            while (args != null) {
+                if (args<span class="hljs-preprocessor">.getName</span>()<span class="hljs-preprocessor">.equals</span>(fieldName)) {
+                    args<span class="hljs-preprocessor">.setStructParent</span>(symbol)<span class="hljs-comment">;</span>
+                    <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+                }
+
+                args = args<span class="hljs-preprocessor">.getNextSymbol</span>()<span class="hljs-comment">;</span>
+            }
+
+            if (args == null) {
+                System<span class="hljs-preprocessor">.err</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"access a filed not in struct object!"</span>)<span class="hljs-comment">;</span>
+                System<span class="hljs-preprocessor">.exit</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span>
+            }
+            <span class="hljs-comment">/*
+             * 把读取结构体成员变量转换成对应的java汇编代码，也就是使用getfield指令把对应的成员变量的值读取出来，然后压入堆栈顶部
+             */</span>
+            //TODO 需要区分结构体是否来自于结构体数组
+            if (args<span class="hljs-preprocessor">.getValue</span>() != null) {
+                ProgramGenerator<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-preprocessor">.readValueFromStructMember</span>(symbol, args)<span class="hljs-comment">;</span>
+            }
+        ....        </code></pre> 
+ <p>代码先把变量myTag的作用域设置成包含它的函数，也就是main函数，然后调用ProgramGenerator.getInstance().putStructToClassDeclaration(symbol); <br> 将结构体声明成一个java的类声明。当要读取结构体数组第二个元素的成员变量x的时候，ProgramGenerator.getInstance().readValueFromStructMember(symbol, args); <br> 会被执行，它的作用是生成前面讲过的指令片段4.</p> 
+ <p>C语言代码中myTag[2].x = 1; 这条语句的目标是对结构体数组第二个元素的成员变量x赋值1，编译器在解释执行这个赋值操作时，会进入到Symbol.java，执行如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">@Override
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setValue</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (obj != <span class="hljs-keyword">null</span>) {
+            System.<span class="hljs-keyword">out</span>.println(<span class="hljs-string">"Assign Value of "</span> + obj.toString() + <span class="hljs-string">" to Variable "</span> + name);   
+        }
+
+        <span class="hljs-keyword">this</span>.<span class="hljs-keyword">value</span> = obj;
+
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.<span class="hljs-keyword">value</span> != <span class="hljs-keyword">null</span>) {
+            <span class="hljs-comment">/*
+             * 先判断该变量是否是一个结构体的成员变量，如果是，那么需要通过assignValueToStructMember来实现成员变量
+             * 的赋值，如果不是，那么就直接通过IStore语句直接赋值
+             */</span>
+            ProgramGenerator generator = ProgramGenerator.getInstance();
+            <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.isStructMember() == <span class="hljs-keyword">false</span>) {
+                <span class="hljs-keyword">int</span> idx = generator.getLocalVariableIndex(<span class="hljs-keyword">this</span>);
+                <span class="hljs-keyword">if</span> (generator.isPassingArguments() == <span class="hljs-keyword">false</span>) {
+                    generator.emit(Instruction.ISTORE, <span class="hljs-string">""</span> + idx);   
+                }   
+            } <span class="hljs-keyword">else</span> {
+
+                <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.getStructSymbol().getValueSetter() != <span class="hljs-keyword">null</span>) {
+                    generator.assignValueToStructMemberFromArray(<span class="hljs-keyword">this</span>.getStructSymbol().getValueSetter(), <span class="hljs-keyword">this</span>, <span class="hljs-keyword">this</span>.<span class="hljs-keyword">value</span>);
+                } <span class="hljs-keyword">else</span> {
+                    generator.assignValueToStructMember(<span class="hljs-keyword">this</span>.getStructSymbol(), <span class="hljs-keyword">this</span>, <span class="hljs-keyword">this</span>.<span class="hljs-keyword">value</span>);  
+                }
+
+            }
+
+        }
+
+    }</code></pre> 
+ <p>代码先判断，当前的赋值操作是否是针对结构体数组中的某个元素进行的，如果是，那么generator.assignValueToStructMemberFromArray(this.getStructSymbol().getValueSetter(), this, this.value); <br> 这条语句就会执行，它的作用是生成代码片段3.</p> 
+ <p>由于篇幅原因，generator生成java指令的实现将会在视频中再做解析，更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>上面代码完成后，编译器会把给定的C语言代码编译成如下java汇编语言：</p> 
+ <pre class="prettyprint"><code class=" hljs d">.<span class="hljs-keyword">class</span> <span class="hljs-keyword">public</span> CSourceToJava
+.<span class="hljs-keyword">super</span> java/lang/Object
+
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> main([Ljava/lang/String;)V
+    sipush  <span class="hljs-number">2</span>
+    sipush  <span class="hljs-number">5</span>
+    anewarray   CTag
+    astore  <span class="hljs-number">0</span>
+    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    <span class="hljs-keyword">new</span> CTag
+    dup
+    invokespecial   CTag/&lt;init&gt;()V
+    aastore
+    sipush  <span class="hljs-number">1</span>
+    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    aaload
+    sipush  <span class="hljs-number">1</span>
+    putfield    CTag/x I
+    sipush  <span class="hljs-number">2</span>
+    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    aaload
+    getfield    CTag/x I
+    istore  <span class="hljs-number">1</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"the x value of second struct object is :"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">1</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    <span class="hljs-keyword">return</span>
+.end method
+.end <span class="hljs-keyword">class</span>
+.<span class="hljs-keyword">class</span> <span class="hljs-keyword">public</span> CTag
+.<span class="hljs-keyword">super</span> java/lang/Object
+.field <span class="hljs-keyword">public</span> c C
+.field <span class="hljs-keyword">public</span> x I
+.method <span class="hljs-keyword">public</span> &lt;init&gt;()V
+    aload   <span class="hljs-number">0</span>
+    invokespecial   java/lang/Object/&lt;init&gt;()V
+    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">0</span>
+    putfield    CTag/c C
+    aload   <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">0</span>
+    putfield    CTag/x I
+    <span class="hljs-keyword">return</span>
+.end method
+.end <span class="hljs-keyword">class</span>
+
+</code></pre> 
+ <p>把这些汇编语言编译成字节码，在虚拟机上运行后，结果如下： <br> <img src="img/1647416414363/-7652865187921059715.jpg" alt="这里写图片描述" title=""></p> 
+ <p>通过运行结果可以得知，编译器生成的字节码在虚拟机上运行的结果跟C语言代码想要的结果是完全一样的。由于本节代码逻辑有点复杂，请参看视频<a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a> 以便加深理解和掌握。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416414468/-3183733616847449659.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发编译器之：LALR语法解析及代码生成</title>
+ <body> java开发编译器之：LALR语法解析及代码生成</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>大家好，欢迎大家来到Coding迪斯尼。我开启了新的算法课程: <br> 如何进入google,算法面试技能全面提升指南 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002942008">http://study.163.com/course/courseMain.htm?courseId=1002942008</a></p> 
+ <p>在课程中，我将facebook, google, ms,amazon, BAT等公司使用的面试算法题收集起来进行分析，喜欢算法，特别是准备面试，冲击一线互联网公司的朋友不要错过</p> 
+ <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程：</p> 
+ <p><a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+ <p>在前几节我们看到，自顶向下的语法解析中，可以通过属性传递的方式去实现代码生成，属性传递的方式主要是在父函数调用子函数时，将属性作为参数进行传递。但是，就如上节我们看到的，LALR语法解析过程是通过栈而不是函数调用的方式来实现的，这节，我们注重研究如何在LALR的解析过程中实现属性传递，从而实现代码生成。</p> 
+ <p>在自底向上的解析中，对应表达式：e -&gt; t + e, 解析器在解析过程中会构建一个解析树，树的父节点是e, 三个子节点分别是t, +, e: <br> |– t <br> e–|– + <br> |– e</p> 
+ <p>前一节强调过，一个非终结符被压入堆栈，那一定是进行了一次reduce操作后才行，因此，上面的 t 如果出现在堆栈中，一定是因为根据表达式: t -&gt; NUM 进行reduce操作后才可能。终结符 + 压入堆栈是因为一次shift操作，最后一个非终结符 e 被压入堆栈，也只可能是根据表达式: <br> e -&gt; t + e 或 <br> e -&gt; t <br> 进行了reduce操作，非终结符e才可能出现在解析堆栈上。</p> 
+ <p>LALR属性传递必须是由子节点传给父节点，当进行一次reduce操作后，表达式左边的非终结符压入堆栈，此时，解析器可以把相应的属性附加到被压入堆栈的非终结符上。这样的话，只要进行一次reduce操作，我们就可以进行代码生成动作。</p> 
+ <p>“把相应的属性附加到被压入堆栈的非终结符上”，这句话中描述的动作，在代码上怎么实现呢。就如同前几节描述过的PDA一样，除了解析堆栈外，我们再生成一个新的堆栈，称之为属性堆栈，当reduce操作后，非终结符压入解析堆栈，对应的属性则可以压入属性堆栈。属性堆栈的操作跟解析堆栈看齐，解析堆栈出栈时，属性堆栈也做出栈操作，解析堆栈入栈时，属性堆栈也做入栈操作。由于reduce操作会将解析堆栈中的元素出栈，所以解析器要进行代码生成时，要在解析堆栈弹出元素前进行。</p> 
+ <p>举个具体例子，对于输入: 1 + 2 + 3, 我们看看LALR解析是如何生成代码的，下面的描述中，左边显示的是两个堆栈，解析堆栈在上边，属性堆栈在下边，右边显示的是解析器生成的代码，解析过程中，传递的属性是生成代码时需要用到的临时变量名字。</p> 
+ <p>当解析开始时，读入第一个数字，做一次shift操作，把1对应的token ,NUM 压入堆栈，但shift操作不生成属性，所以属性堆栈上压入一个null对象：</p> 
+ <p>parse stack: NUM <br> value stack: null</p> 
+ <p>接着，根据表达式 t -&gt; NUM, 解析器要做一次reduce操作，于是NUM出栈,并且属性堆栈也做相应的出栈操作，把堆栈里面的null弹出，同时非终结符t入栈，同时压入一个属性，这个属性是用于生成代码的临时变量t0, 同时生成代码 <br> t0 = 1:</p> 
+ <p>parse stack: t t0 = 1 <br> value stack: t0</p> 
+ <p>由于属性t0与非终结符t在两个堆栈中的位置是一样的，我们可以看做t0附加在t身上。</p> 
+ <p>接下来，根据表达式 e -&gt; t做reduce操作，于是t从解析堆栈上出栈，同时属性t0也从属性堆栈出栈，但在解析树种， e 是 t的父亲节点，由此 t 的属性需要传递给 e, 因此， 当 e 被压入解析堆栈时，属性t0也重新被压入堆栈：</p> 
+ <p>parse stack: e <br> value stack: t0</p> 
+ <p>接下来分别读入输入中的 + , 1两个字符，同时通过shift操作把他们对应的token压入解析堆栈，由于shift不产生新的属性，因此，把null也相应的压入属性堆栈：</p> 
+ <p>parse stack: e + NUM <br> value stack: t0 null null</p> 
+ <p>此时，需要根据表达式 t -&gt; NUM 做reduce操作，由于reduce操作需要生产属性，因此把NUM从栈顶弹出时，NUM对应的属性null也出栈，当把 t 压入堆栈时，生成一个新的属性 t1, 压入属性堆栈：</p> 
+ <p>parse stack: e + t <br> value stack: t0 null t1 <br> 此时，我们又可以根据表达式 e -&gt; e + t 进行reduce操作，同时解析器需要进行两个操作，一是生成代码 t0 += t1. <br> 同时把 e + t 三个元素出栈，他们对应的属性也出栈，把表达式左边的非终结符 e 压入解析堆栈，由于是reduce操作，需要生成新的属性，因此解析器构造一个新的属性t0, 把t0 压入属性堆栈：</p> 
+ <p>parse stack: e t0 += t1 <br> value stack: t0 </p> 
+ <p>剩下的输入中还剩下两个字符： + 3 ， 通过shift 操作把他们的token压入解析堆栈，同时在属性堆栈上压入两个null:</p> 
+ <p>parse stack: e + NUM <br> value stack: t0 null null</p> 
+ <p>根据 t -&gt; NUM 做一次reduce操作，同时生成新的属性压入属性堆栈：</p> 
+ <p>parse stack: e + t <br> value stack: t0 null t1 <br> 根据表达式 e -&gt; e + t 做reduce 操作，同时生成代码 <br> t0 += t1 <br> 然后做相应的出栈操作，由于reduce操作要把表达式左边的e 压入堆栈，同时需要生成新的属性，由此堆栈情况如下：</p> 
+ <p>parse stack: e <br> value stack: t0</p> 
+ <p>根据表达式 s -&gt; e ， 做reduce操作，e 出栈，同时把t0出栈，把s 压入堆栈，同时生成新的属性t0压入堆栈：</p> 
+ <p>parse stack: s <br> value stack: t0 </p> 
+ <p>由于此时全局非终结符已经压入堆栈，同时所有输入都已经处理，解析结束，并且对应的代码也生成了。</p> 
+ <p>从上面的推导流程可以看到，在进行reduce操作时，有可能要附带着一些action, 我们总结如下： <br> Grammar Action <br> s -&gt; e System.out.print(“answer=” + <br> valuestack[0]) <br> e -&gt; e + t System.out.print (“ <br> valueStack[2] “+=” <br> valueStack[0]); <br> free_name(valueStack[0]); <br> $$ = valueStack[2];</p> 
+ <p>e -&gt; t $$ = valueStack[0]</p> 
+ <p>t -&gt; NUM name = new_name(); <br> System.out.print (name + “=”+ <br> lexer.yytext);</p> 
+ <p>其中 $$ 表示做reduce操作后，当压入表达式左边的非终结符时，要压入的对应属性对象。</p> 
+ <p>在下一节，我们通过代码来实现本节描述的算法。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

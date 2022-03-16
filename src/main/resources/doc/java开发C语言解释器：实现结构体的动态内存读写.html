@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言解释器：实现结构体的动态内存读写</title>
+ <body> java开发C语言解释器：实现结构体的动态内存读写</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>如果你对机器学习感兴趣，请参看一下链接： <br> <a href="http://www.imooc.com/learn/813">机器学习：神经网络导论</a></p> 
+ <p>当前我们开发的C语言解释器存在一个问题，就是下面的代码会被正确执行：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">void</span> main() {
+    <span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">int</span> p;
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">int</span> arr[<span class="hljs-number">3</span>];
+    }tag;
+
+    <span class="hljs-keyword">struct</span> TAG* pTag;
+    pTag-&gt;c = <span class="hljs-number">11</span>;
+    <span class="hljs-built_in">printf</span>(<span class="hljs-string">"value of c in struct pTag is : %d"</span>, pTag-&gt;c);
+}</code></pre> 
+ <p>熟悉C语言的同学会知道，pTag是一个结构体指针，这个指针并没有指向一段有效的内存，但是接下来的代码却通过pTag去访问结构体成本变量c, 这就会导致野指针内存读写，好的情况下，这段代码会导致程序奔溃，最坏的情况是，它能够正常执行，但程序运行会出现诡异的，非常难以排查的bug。</p> 
+ <p>我们这节的目的就是修正这个问题，同时使得解释器能够正确执行通过直接内存读取的方式，访问结构体的成员变量，完成本节代码后，我们的解释器能够正确执行下面的C语言代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">void</span> main() {
+    <span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">int</span> p;
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">int</span> arr[<span class="hljs-number">3</span>];
+    }tag;
+
+    <span class="hljs-keyword">struct</span> TAG* pTag;
+    <span class="hljs-keyword">int</span> sz ;
+    sz = <span class="hljs-keyword">sizeof</span>(tag);
+    pTag = <span class="hljs-built_in">malloc</span>(sz);
+    pTag-&gt;c = <span class="hljs-number">11</span>;
+    pTag-&gt;arr[<span class="hljs-number">0</span>] = <span class="hljs-number">1</span>;
+    pTag-&gt;arr[<span class="hljs-number">1</span>] = <span class="hljs-number">3</span>;
+    pTag-&gt;arr[<span class="hljs-number">2</span>] = <span class="hljs-number">5</span>;
+    <span class="hljs-built_in">printf</span>(<span class="hljs-string">"value of c in struct pTag is : %d, and value of arr[1] is "</span>, *(pTag+<span class="hljs-number">4</span>), *(pTag+<span class="hljs-number">9</span>));
+}
+</code></pre> 
+ <p>当前我们的解释器的符号系统实现，使得结构体，它的变量有单独的存储空间，结构体里面的每个变量都对应一个Symbol对象，像上面的代码，结构体变量是一个指针，同时，代码通过malloc给这个指针分配了一片动态内存，于是这个结构体指针变量就对应两套内存，一套就是结构体成员本身就已经对应的Symbol对象，这就是为何对于一个没有分配内存的结构体指针，我们仍然可以通过它来访问成员变量, 如图：</p> 
+ <p><img src="img/1647416416199/-8789645381843694986.jpg" alt="这里写图片描述" title=""></p> 
+ <p>现在我们需要做的是，要把成员变量的内容跟结构体指针指向的内存统一起来，也就是说，如果我们对结构体成员赋值后，结构体指针对应的内存也要做相关改变，以上面代码为例子，我们给成员变量c赋值，由于pTag指向整个结构体内存的起始地址，同时变量c上面有个4字节的整形变量，也就是c对应的内存是结构体起始地址偏移4字节，因此如果我们通过指针直接得到结构体的内存起始地址，然后访问偏移4个地址处的内存信息，所得到的数值，应该是与成员变量c一样的数值。也就是说，如果语句 pTag-&gt;c = 11; 执行后，那么语句*(pTag+4)得到的结果就是11。</p> 
+ <p>我们在前面章节中，以及详细解释了如何实现sizeof, malloc, 以及指针内存读取*(pTag+4), 我们这节的任务就是让结构体成员的数值与分配的动态内存中的信息保存一致，我们的做法是这样的，当结构体成员被赋值后，不管是哪个成员被赋值，解释器直接把结构体中的所有成员包含的数值，直接拷贝到动态分配的内存里。</p> 
+ <p>于是解释器的相关模块就得监控结构体成员被赋值这一事件，这种监控机制我们在上一节已经详细解释了，现在我们看看，一旦获取到结构体成员被赋值这一事件通知后，解释器如何把结构体成员的内容拷贝到动态内存中。内容拷贝是在执行单元UnaryNodeExecutor中执行的，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IExecutorReceiver</span>{<!-- --></span>
+<span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleExecutorMessage</span>(ICodeNode code) {
+        <span class="hljs-keyword">int</span> productNum = (Integer)code.getAttribute(ICodeKey.PRODUCTION);
+        Object object = code.getAttribute(ICodeKey.SYMBOL);
+        <span class="hljs-keyword">if</span>(object == <span class="hljs-keyword">null</span> || (object <span class="hljs-keyword">instanceof</span> Symbol) == <span class="hljs-keyword">false</span>) {
+            <span class="hljs-keyword">return</span>;
+        }
+
+        Symbol symbol = (Symbol)object;
+        <span class="hljs-keyword">if</span> (productNum == CGrammarInitializer.NoCommaExpr_Equal_NoCommaExpr_TO_NoCommaExpr
+                &amp;&amp; symbol == monitorSymbol) {
+            System.out.println(<span class="hljs-string">"UnaryNodeExecutor receive msg for assign execution"</span>);
+            copyStructToMem(structObjSymbol);
+        }
+    }
+}</code></pre> 
+ <p>一旦变量赋值发生后，上面的函数会被调用，在该函数中，它会判断当前发生的事件是否是变量赋值事件，如果是，再次判断被赋值的变量是不是结构体的成员变量(symbol == monitorSymbol), 如果是的话，执行函数copyStructToMem,遍历结构体中每个成员，把他们的数值内容拷贝到动态分配的内存当中。我们看看copyStructToMem的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">copyStructToMem</span>(Symbol symbol) {
+        Integer addr = (Integer)symbol.getValue();
+        MemoryHeap memHeap = MemoryHeap.getInstance();
+        Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; entry = memHeap.getMem(addr);
+        <span class="hljs-keyword">byte</span>[] mems = entry.getValue();
+        Stack&lt;Symbol&gt; stack = reverseStructSymbolList(symbol);
+        <span class="hljs-keyword">int</span> offset = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">while</span> (stack.empty() != <span class="hljs-keyword">true</span>) {
+            Symbol sym = stack.pop(); 
+
+            <span class="hljs-keyword">try</span> {
+                offset += writeStructVariablesToMem(sym, mems, offset);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                System.err.println(<span class="hljs-string">"error when copyin struct variables to memory"</span>);
+                e.printStackTrace();
+            }
+        }
+    }
+<span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">writeStructVariablesToMem</span>(Symbol symbol, <span class="hljs-keyword">byte</span>[] mem, <span class="hljs-keyword">int</span> offset) <span class="hljs-keyword">throws</span> Exception{
+        <span class="hljs-keyword">if</span> (symbol.getArgList() != <span class="hljs-keyword">null</span>) {
+             <span class="hljs-keyword">return</span> writeStructVariablesToMem(symbol, mem, offset);
+        }
+
+        <span class="hljs-keyword">int</span> sz = symbol.getByteSize();
+        <span class="hljs-keyword">if</span> (symbol.getValue() == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> sz;
+        }
+
+        <span class="hljs-keyword">if</span> (symbol.getDeclarator(Declarator.ARRAY) == <span class="hljs-keyword">null</span>) {
+            Integer val =  (Integer)symbol.getValue();
+            <span class="hljs-keyword">byte</span>[] bytes = ByteBuffer.allocate(<span class="hljs-number">4</span>).putInt(val).array();
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">3</span>; i &gt;= <span class="hljs-number">4</span> - sz; i--) {
+                mem[offset + <span class="hljs-number">3</span> - i] = bytes[i];
+            }
+
+            <span class="hljs-keyword">return</span> sz;
+        } <span class="hljs-keyword">else</span> {
+            <span class="hljs-keyword">return</span> copyArrayVariableToMem(symbol, mem, offset);
+        }
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> <span class="hljs-title">copyArrayVariableToMem</span>(Symbol symbol, <span class="hljs-keyword">byte</span>[] mem, <span class="hljs-keyword">int</span> offset) {
+        Declarator declarator = symbol.getDeclarator(Declarator.ARRAY);
+        <span class="hljs-keyword">if</span> (declarator == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span> <span class="hljs-number">0</span>;
+        }
+
+        <span class="hljs-keyword">int</span> sz = symbol.getByteSize();
+        <span class="hljs-keyword">int</span> elemCount = declarator.getElementNum();
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; elemCount; i++) {
+            <span class="hljs-keyword">try</span> {
+                Integer val = (Integer)declarator.getElement(i);
+                <span class="hljs-keyword">byte</span>[] bytes = ByteBuffer.allocate(sz).putInt(val).array();
+                <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> j = <span class="hljs-number">0</span>; j &lt; sz; j++) {
+                    mem[offset + j] = bytes[j];
+                }
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+            }
+        }
+
+        <span class="hljs-keyword">return</span> sz* elemCount;
+    }
+
+    <span class="hljs-keyword">private</span> Stack&lt;Symbol&gt;<span class="hljs-title">reverseStructSymbolList</span>(Symbol symbol) {
+        Stack&lt;Symbol&gt; stack = <span class="hljs-keyword">new</span> Stack&lt;Symbol&gt;();
+        Symbol sym = symbol.getArgList();
+        <span class="hljs-keyword">while</span> (sym != <span class="hljs-keyword">null</span>) {
+            stack.push(sym);
+            sym = sym.getNextSymbol();
+        }
+
+        <span class="hljs-keyword">return</span> stack;
+    }
+</code></pre> 
+ <p>copyStructToMem 先从HeapMomory中获得分配给结构体指针的字节数组。然后准备把结构体每个成员的数值都拷贝到这个字节数组中。在拷贝成员变量时，变量在结构体中的次序非常重要，每个变量要根据又前往后的顺序拷贝到内存里，从上图可以看到，结构体的成员变量队列是倒过来的，根据代码中给定的结构体例子，变量的排序次序是attr , c, p。reverseStructSymbolList的作用是把这些变量依次压入到一个堆栈中，该函数返回的堆栈对象内容如下： <br> stack: p <br> c <br> attr <br> 这样一来，堆栈从顶到底，变量排列的次序就跟他们在结构体中出现的次序一致了。拷贝变量时，每次都从reverseStructSymbolList返回的堆栈顶部弹出一个变量对象来处理，拷贝的具体细节由writeStructVariablesToMem实现。</p> 
+ <p>writeStructVariablesToMem首先判断要拷贝的变量是不是一个复合类型变量，也就是当前拷贝的这个变量是不是一个结构体变量，如果是，那么它要递归调用自己去拷贝一个结构体变量，如果不是，它接下来判断该变量有没有被赋值，如果没有，那么就没必要执行拷贝动作。如果有赋值，那么判断该变量是不是一个数组，如果不是数组，那么先获得该变量的字节大小，然后逐字节把变量的数值拷贝到内存数组中，如果变量是一个数组，那么就调用copyArrayVariableToMem 来处理。</p> 
+ <p>copyArrayVariableToMem的逻辑是把数组变量的每个元素逐个取出，得到每个元素的字节大小，然后分别把每个元素依次拷贝到内存数组中。</p> 
+ <p>当上面代码完成后，我们的解释器能够正确执行本节例子中，较为复杂的结构体内存读写操作，进而本节所给的代码例子能够被我们的解释器正确的执行。</p> 
+ <p>本节内容有些繁琐，请参看视频以便获得更详实的讲解和代码调试演示过程。 <br> 更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416416236/-6448209770552843417.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

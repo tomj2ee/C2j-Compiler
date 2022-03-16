@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言编译器：jvm的return指令以及局部变量的操作</title>
+ <body> java开发C语言编译器：jvm的return指令以及局部变量的操作</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>请结合视频阅读本文以便获得更清晰的理解。 <br> 更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002942008">如何进入google,算法面试技能全面提升指南</a></p> 
+ <p>如果你对机器学习感兴趣，请参看一下链接： <br> <a href="http://www.imooc.com/learn/813">机器学习：神经网络导论</a></p> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1003169025">Linux kernel Hacker, 从零构建自己的内核</a></p> 
+ <p>jvm运行字节码时，代码的运行必须围绕两种数据结构，一种是堆栈，一种是队列，如果jvm执行某条指令时，该指令需要对数据进行操作，那么被操作的数据在指令执行前，必须要压倒堆栈上。如果堆栈上的数据需要暂时保持起来时，它就会被加载到局部变量队列上。</p> 
+ <p>java代码中，每个方法里面的局部变量包括函数的输入参数都会存储在队列上。我们看下面一个方法：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> f() {
+    <span class="hljs-keyword">int</span> a;
+    <span class="hljs-keyword">int</span> b;
+    a = <span class="hljs-number">1</span>;
+    b = <span class="hljs-number">2</span>;
+}</code></pre> 
+ <p>jvm在执行上面代码时，首先会分配一个堆栈和一个队列，一开始堆栈和队列都为空：</p> 
+ <p>stack: null <br> list: null</p> 
+ <p>要执行语句 a = 1; 时，首先需要把常量1压到堆栈上：</p> 
+ <p>stack: 1</p> 
+ <p>局部变量a对应于队列的第0个元素，把1赋值给变量a，就相当于把堆栈顶部的数值1转移到队列的第0个元素，因此语句a =1;执行后队列和堆栈的情况如下： <br> stack: null <br> list: 1, </p> 
+ <p>执行第二条语句b = 2; 时同理，先把常量2压到堆栈上： <br> stack: 2 <br> list: 1</p> 
+ <p>由于变量b是函数的第二个局部变量，因此它对应队列的第1个元素，把常量2赋值给变量b,就需要把堆栈顶部的数值2移到堆栈的第1个元素：</p> 
+ <p>stack: <br> list: 1, 2</p> 
+ <p>由此，当我们把C语言编译成java字节码时，在解析函数时，函数中的局部变量都需要对应到虚拟机局部变量队列中的对应元素，在一会给出的例子中，我们会通过代码看看，在解析C语言函数的局部变量时，程序是如何把变量和jvm的变量队列对应起来的。</p> 
+ <p>在此，我们还需要介绍的jvm的return指令, 无论是C代码还是java代码，一旦函数有返回值时，都需要通过关键字return把数据返回给函数的调用者，代码中的return语句在编译成java字节码后，对应着多条语句。如果return 语句返回的数据类型是整形，那么该return语句对应的字节码指令是ireturn, 前面的i表示整形，同理，如果return 返回的数据类型是浮点数，那么对应的java字节码指令就是freturn, 前面的f表示float，如果return 返回的数据类型是double,对应的字节码指令就是dreturn, 前面的d表示double。</p> 
+ <p>需要注意的是return 语句对应的字节码指令必须跟函数的返回值声明相一致，如果函数声明时返回的数据类型是整形，结果函数编译后使用的return指令是freturn,也就是要返回一个浮点数，这种不一致性会被jvm检测到，一旦发现指令的逻辑不一致，虚拟机就会拒绝执行给定的代码。</p> 
+ <p>介绍完理论后，我们看看如何把理论付诸实践。下面的代码将是我们要编译成java字节码的C语言代码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> f() {
+    <span class="hljs-keyword">int</span> a;
+    <span class="hljs-keyword">int</span> b;
+    a = <span class="hljs-number">1</span>;
+    b = <span class="hljs-number">2</span>;
+
+    <span class="hljs-keyword">return</span> a+b;
+}
+
+void main() {
+    <span class="hljs-keyword">int</span> c; 
+    c = f();
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"result of calling f is :<span class="hljs-variable">%d</span>"</span>, c);
+}</code></pre> 
+ <p>函数f的返回值是int,因此在编译成java字节码时，f 里面的return语句编译后要对应上jvm的ireturn指令，同时f中含有两个局部变量a,b,根据前面讲述的理论，在解析到这两个变量时，编译器需要把他们对应到java虚拟机中局部变量队列的相应元素。</p> 
+ <p>我们看看，局部变量是如何对应到虚拟机队列的相应元素的，在ProgramGenerator.java中，添加代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ProgramGenerator</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">CodeGenerator</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> ProgramGenerator instance = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span>  String funcName = <span class="hljs-string">""</span>;
+    ....
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLocalVariableIndex</span>(Symbol symbol) {
+        TypeSystem typeSys = TypeSystem.getTypeSystem();
+        ArrayList&lt;Symbol&gt; list = typeSys.getSymbolsByScope(symbol.getScope());
+        Collections.reverse(list);
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; list.size(); i++) {
+            <span class="hljs-keyword">if</span> (list.get(i) == symbol) {
+                <span class="hljs-keyword">return</span> i;
+            }
+        }
+
+        <span class="hljs-keyword">return</span> -<span class="hljs-number">1</span>;
+    }
+    ....
+}</code></pre> 
+ <p>每个变量都对应着一个符号对象Symbol, 同时每个变量都有给定的作用范围，getSymbolsByScope把同一作用范围内的变量全部取出来，形成一个队列，例如在f中，有两个具备变量a,b , 他们的作用范围都是f, 如果把a对应的Symbol对象传入上面函数后，list会得到一个队列，该队列包含两个Symbol对象，这两个对象就是变量a和b所对应的Symbol对象。得到这个队列后，我们通过变量符号对象在队列中的位置来对应他们在虚拟机队列中的位置。</p> 
+ <p>第二处需要改动的代码在UnaryNodeExecutor.java中：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IExecutorReceiver</span>{<!-- --></span>
+    <span class="hljs-keyword">private</span> Symbol structObjSymbol = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> Symbol monitorSymbol = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+        ....
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+        <span class="hljs-keyword">case</span> CGrammarInitializer.Name_TO_Unary:
+            symbol = (Symbol)root.getAttribute(ICodeKey.SYMBOL);
+            <span class="hljs-keyword">if</span> (symbol != <span class="hljs-keyword">null</span>) {
+                root.setAttribute(ICodeKey.VALUE, symbol.getValue());
+                root.setAttribute(ICodeKey.TEXT, symbol.getName());
+
+                ICodeNode func = CodeTreeBuilder.getCodeTreeBuilder().getFunctionNodeByName(symbol.getName());
+                <span class="hljs-keyword">if</span> (func == <span class="hljs-keyword">null</span> &amp;&amp; symbol.getValue() != <span class="hljs-keyword">null</span>) {
+                    ProgramGenerator generator = ProgramGenerator.getInstance();
+                    <span class="hljs-keyword">int</span> idx = generator.getLocalVariableIndex(symbol);
+                    generator.emit(Instruction.ILOAD, <span class="hljs-string">""</span> + idx);    
+                }
+
+            }
+            <span class="hljs-keyword">break</span>;
+            .....
+            }
+            ....
+    }
+    .....
+}</code></pre> 
+ <p>在解析到某个变量是，我们先看该变量是否已经赋值了，也就是symbol.getValue()返回值不是null, 如果赋值了，那么通过调用getLocalVariableIndex得到该变量在遍历队列里的位置，这个位置将作为它对应在虚拟机变量队列里的位置。假设该变量对应的位置是x, 那么上面代码将输出指令： <br> iload x <br> 也就是把变量队列中第x个元素加载到堆栈顶端。</p> 
+ <p>第三处需要改动的代码在FunctDeclExecutor.java:</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctDeclExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> ArrayList&lt;Object&gt; argsList = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> ICodeNode currentNode;
+    ProgramGenerator generator = ProgramGenerator.getInstance();
+    ....
+    <span class="hljs-keyword">private</span> String <span class="hljs-title">emitArgs</span>(Symbol funSymbol) {
+        argsList = FunctionArgumentList.getFunctionArgumentList().getFuncArgList(<span class="hljs-keyword">true</span>);
+        String args = <span class="hljs-string">"("</span>;
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; argsList.size(); i++) {
+            Symbol symbol = (Symbol)argsList.get(i);
+            String arg = <span class="hljs-string">""</span>;
+            <span class="hljs-keyword">if</span> (symbol.getDeclarator(Declarator.ARRAY) != <span class="hljs-keyword">null</span>) {
+                arg += <span class="hljs-string">"["</span>;
+            }
+
+            <span class="hljs-keyword">if</span> (symbol.hasType(Specifier.INT)) {
+                arg += <span class="hljs-string">"I"</span>;
+            }
+
+            args += arg;
+        }
+
+        <span class="hljs-keyword">if</span> (funSymbol.hasType(Specifier.INT)) {
+            args += <span class="hljs-string">")I"</span>;
+        } <span class="hljs-keyword">else</span> {
+            args += <span class="hljs-string">")V"</span>;
+        }
+
+        <span class="hljs-keyword">return</span> args;
+    }
+    .....
+}</code></pre> 
+ <p>这里我们要把C语言中的函数声明编译成java字节码的函数声明，原来我们一直默认函数返回值都是void型，现在我们函数可以返回整形了，一个函数本质上也是一个变量，因此函数f也对应着一个Symbol对象，我们通过判断该Symbol对象的类型就可以得知函数的返回值，以例子代码为例： int f() 由于f前面有关键字int来修饰，因此f对应的Symbol对象它包含一个类型为int的specifier,一旦我们判断到返回值是整形时，在把函数声明编译成字节码时，需要在函数参数列表后面加上一个I,用于表明返回值是整形，由此C代码中的函数声明int f()编译成java字节码后对应的代码为： <br> .method public static f()I。</p> 
+ <p>第四处需要修改的代码还是在UnaryNodeExecutor.java中：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IExecutorReceiver</span>{<!-- --></span>
+....
+   <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+   ....
+   <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_LP_RP_TO_Unary:
+   <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_LP_ARGS_RP_TO_Unary:
+   ....
+   emitReturnInstruction(symbol);
+   ....
+   }
+
+  <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">emitReturnInstruction</span>(Symbol symbol) {
+        <span class="hljs-keyword">if</span> (symbol.hasType(Specifier.INT)) {
+            ProgramGenerator.getInstance().emit(Instruction.IRETURN);
+        } <span class="hljs-keyword">else</span> {
+            ProgramGenerator.getInstance().emit(Instruction.RETURN);
+        }
+    }</code></pre> 
+ <p>前面我们提到过，函数声明时，指明了返回值类型的话，那么return必须根据返回值类型对应到字节码相应的xreturn语句，在这里我们通过函数的符号对象，获得函数的返回值类型，如果函数的返回值类型是整形，那么编译器就要输出ireturn语句，如果返回值是void类型，那么输出return指令就可以了。</p> 
+ <p>第五处需要修改的是Symbol.java:</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Symbol</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IValueSetter</span>{<!-- --></span>
+....
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setValue</span>(Object obj) {
+        <span class="hljs-keyword">if</span> (obj != <span class="hljs-keyword">null</span>) {
+            System.out.println(<span class="hljs-string">"Assign Value of "</span> + obj.toString() + <span class="hljs-string">" to Variable "</span> + name);   
+        }
+
+        <span class="hljs-keyword">this</span>.value = obj;
+
+        <span class="hljs-keyword">if</span> (<span class="hljs-keyword">this</span>.value != <span class="hljs-keyword">null</span>) {
+            ProgramGenerator generator = ProgramGenerator.getInstance();
+            <span class="hljs-keyword">int</span> idx = generator.getLocalVariableIndex(<span class="hljs-keyword">this</span>);
+
+            generator.emit(Instruction.ISTORE, <span class="hljs-string">""</span> + idx);   
+        }
+
+    }
+    ....
+}</code></pre> 
+ <p>在变量被赋值时，上面的代码会被调用，前面我们讲过，如果给局部变量赋值，局部变量对应的是虚拟机队列中的某个元素，对其赋值，相当于把堆栈顶部的数据转移到队列的对应位置上，假设例子中变量b对应在队列中的位置为1，上面代码执行后，编译器会输出指令： <br> istore 1</p> 
+ <p>也就是把堆栈顶部的整形数值转移给队列中的第一个元素。</p> 
+ <p>上面代码执行后，我们的编译器会把给定的C语言程序编译成如下java汇编代码：</p> 
+ <pre class="prettyprint"><code class=" hljs d">.<span class="hljs-keyword">class</span> <span class="hljs-keyword">public</span> CSourceToJava
+.<span class="hljs-keyword">super</span> java/lang/Object
+
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> main([Ljava/lang/String;)V
+    invokestatic    CSourceToJava/f()I
+    istore  <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">0</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"result of calling f is :"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    istore  <span class="hljs-number">2</span>
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    iload   <span class="hljs-number">2</span>
+    invokevirtual   java/io/PrintStream/print(I)V
+    getstatic   java/lang/System/<span class="hljs-keyword">out</span> Ljava/io/PrintStream;
+    ldc <span class="hljs-string">"
+"</span>
+    invokevirtual   java/io/PrintStream/print(Ljava/lang/String;)V
+    <span class="hljs-keyword">return</span>
+.end method
+.method <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> f()I
+    sipush  <span class="hljs-number">1</span>
+    istore  <span class="hljs-number">0</span>
+    sipush  <span class="hljs-number">2</span>
+    istore  <span class="hljs-number">1</span>
+    iload   <span class="hljs-number">0</span>
+    iload   <span class="hljs-number">1</span>
+    iadd
+    ireturn
+.end method
+
+.end <span class="hljs-keyword">class</span></code></pre> 
+ <p>上面汇编代码编译成字节码后执行，其结果如下： <br> <img src="img/1647416411718/3016403564848626342.jpg" alt="这里写图片描述" title=""></p> 
+ <p>通过执行结果可见，我们编译器对代码的编译结果应该是正确的。由于本节将是内容有点抽象，请结合视频演示一起来阅读本文，以便获得更清晰的理解。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416411910/5334145563905336979.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

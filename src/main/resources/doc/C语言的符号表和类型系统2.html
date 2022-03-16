@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> C语言的符号表和类型系统2</title>
+ <body> C语言的符号表和类型系统2</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程：</p> 
+ <p><a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+ <p>这一节，我们继续就上一节讨论的内容，继续就符号表和类型系统的构建进行深入的探讨。</p> 
+ <p>基于上一节的基础，我们看看，编译器如何为一个变量构建它在符号表中的记录和类型系统。假设我们的C语言代码中有如下的变量定义：</p> 
+ <pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword">enum</span> rabbits {
+FLOSPY, MOPSEY, PETER
+};</code></pre> 
+ <p>上面的枚举类型，会被C编译器转换成如下形式的C代码：</p> 
+ <pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword">const</span> <span class="hljs-keyword">int</span> FLOSPY = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">int</span> MOPSEY = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">const</span> <span class="hljs-keyword">int</span> PETER = <span class="hljs-number">0</span>;</code></pre> 
+ <p>编译器在解析 “const int FLOSPY = 0” 这条语句后，会在符号表中产生以下数据结构：</p> 
+ <p><img src="img/1647416926869/7616774608846190283.jpg" alt="这里写图片描述" title=""></p> 
+ <p>由于变量FLOSPY 没有*, 没有[]之类的类型声明，因此它的类型系统只需要说明符，不需要修饰符，因此它的类型列表中就是由一个specifier.它的数据类型是INT, 由于被初始化成一个常量整形，所以constantValue设置为0.大家注意，从Symbol对象引出两个箭头，两个箭头都指向specifier对象。之所以需要两个箭头是因为，类型系统本质上就是一个链表，链表链接的是两种对象，一种是declarator, 一种是specifier, 我们在实现代码的时候，需要把declarator放在链表的前面，specifier放在链表的最末尾。因此从symbol发出的两个箭头，一个指向队列的开头，这样从这个箭头起始就可以逐个访问链表的每个对象，由于declarator放在链表的前面，这样从这个箭头开始，就可以访问一系列的declarator, 但是如果我们想要访问链表最末尾的specifier对象，那就得遍历整个链表，这样效率就太慢了，于是，从symbol对象引出第二个箭头直接指向链表的末尾，也就是specifier对象，这样想要直接访问类型系统链表的specifier，直接从第二个指针读取就可以了，不需要遍历整个链表，例如下面这个例子:</p> 
+ <pre class="prettyprint"><code class="language-c hljs "><span class="hljs-keyword">long</span> <span class="hljs-keyword">int</span> (*Frollo)[<span class="hljs-number">10</span>];</code></pre> 
+ <p>编译器会给上面的变量声明建立如下的符号表记录和类型队列：</p> 
+ <p><img src="img/1647416926938/2829586245572164191.jpg" alt="这里写图片描述" title=""></p> 
+ <p>大家看到，类型系统队列有三个元素，前两个是declarator, 最后一个是specifier, 从symbol引出的两个箭头，一个指向链表的开始，第二个直接指向链表的末尾，也就是specifier.</p> 
+ <p>这样，我们就需要在代码中，设计一个链表来讲declarator 和 specifier连接起来，这个链表的代码如下：</p> 
+ <pre class="prettyprint"><code class="language-java hljs ">
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TypeLink</span> {<!-- --></span>
+    <span class="hljs-keyword">boolean</span>  isDeclarator = <span class="hljs-keyword">true</span>; <span class="hljs-comment">//true 那么该object 的对象是declarator, false那么object指向的就是specifier</span>
+    <span class="hljs-keyword">boolean</span>  isTypeDef = <span class="hljs-keyword">false</span>; <span class="hljs-comment">//true，那么当前变量的类型是由typedef 定义的</span>
+
+    Object   typeObject;
+
+    TypeLink  next = <span class="hljs-keyword">null</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">TypeLink</span>(<span class="hljs-keyword">boolean</span> isDeclarator, <span class="hljs-keyword">boolean</span> typeDef, Object typeObj) {
+        <span class="hljs-keyword">this</span>.isDeclarator = isDeclarator;
+        <span class="hljs-keyword">this</span>.isTypeDef = typeDef;
+        <span class="hljs-keyword">this</span>.typeObject = typeObj;
+    }
+
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">getTypeObject</span>() {
+        <span class="hljs-keyword">return</span> typeObject;
+    }
+
+    <span class="hljs-keyword">public</span> TypeLink <span class="hljs-title">toNext</span>() {
+        <span class="hljs-keyword">return</span> next;
+    }
+}
+</code></pre> 
+ <p>这样我们在Symbol类中，要添加两个成员变量：</p> 
+ <pre class="prettyprint"><code class="language-java hljs "><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Symbol</span> {<!-- --></span>
+    String  name;
+    String  rname;
+
+    <span class="hljs-keyword">int</span>       level;  <span class="hljs-comment">//变量的层次</span>
+    <span class="hljs-keyword">boolean</span>   implicit;  <span class="hljs-comment">//是否是匿名变量</span>
+    <span class="hljs-keyword">boolean</span>   duplicate;   <span class="hljs-comment">//是否是同名变量</span>
+
+    Symbol    args;   <span class="hljs-comment">//如果该符号对应的是函数名,那么args指向函数的输入参数符号列表</span>
+
+    Symbol    next;  <span class="hljs-comment">//指向下一个同层次的变量符号</span>
+
+    TypeLink  typeLinkBegin;
+    TypeLink  typeLinkEnd;
+}</code></pre> 
+ <h4 id="struct-类型变量的类型系统">Struct 类型变量的类型系统</h4> 
+ <p>在Specifier 类中，最后一个成员变量StructDefine,我还没有解释，这个类型是专门用于处理Struct类型声明的。由于一个结构体里面包含了多种变量声明，所以结构体变量的存在使得类型系统复杂了很多，我们先看看结构体变量类型的代码：</p> 
+ <pre class="prettyprint"><code class="language-java hljs "><span class="hljs-comment">/*
+ * struct argotiers {
+ *     int  (*Clopin)();
+ *     double  Mathias[5];
+ *     struct  argotiers*  Guillaume;
+ *     struct  pstruct {int a;} Pierre; 
+ * }
+ */</span>
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StructDefine</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> String tag; <span class="hljs-comment">//结构体的名称,例如上面的例子中，对应该变量的值为 "argotiers"</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span>  level; <span class="hljs-comment">//结构体的间套层次</span>
+    <span class="hljs-keyword">private</span> Symbol fields; <span class="hljs-comment">//对应结构体里的各个变量类型</span>
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">StructDefine</span>(String tag, <span class="hljs-keyword">int</span> level, Symbol fields) {
+        <span class="hljs-keyword">this</span>.tag = tag;
+        <span class="hljs-keyword">this</span>.level = level;
+        <span class="hljs-keyword">this</span>.fields = fields;
+    }
+
+    <span class="hljs-keyword">public</span> String <span class="hljs-title">getTag</span>() {
+        <span class="hljs-keyword">return</span> tag;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">int</span> <span class="hljs-title">getLevel</span>() {
+        <span class="hljs-keyword">return</span> level;
+    }
+
+    <span class="hljs-keyword">public</span> Symbol <span class="hljs-title">getFields</span>() {
+        <span class="hljs-keyword">return</span> fields;
+    }
+}
+</code></pre> 
+ <p>我们以一个具体的结构体声明例子为例，看看它对应的符号表和类型系统是怎样的：</p> 
+ <pre class="prettyprint"><code class="language-C hljs cs"><span class="hljs-keyword">struct</span>  argotiers {
+    <span class="hljs-keyword">int</span>  (*Clopin)();
+    <span class="hljs-keyword">double</span>   Mathias[<span class="hljs-number">5</span>];
+    <span class="hljs-keyword">struct</span>   argotiers *Guillaume;
+    <span class="hljs-keyword">struct</span>   pstruct {<!-- --><span class="hljs-keyword">int</span> a;} Pierre;
+} gipsy;</code></pre> 
+ <p>它的类型系统如下： <br> <img src="img/1647416926999/5642023531829267104.jpg" alt="这里写图片描述" title=""></p> 
+ <p>这个系统看起来似乎很复杂，但实际上它是由若干个简单的类型系统结合而成的，搞清楚前面我们描述的类型系统队列，对这个图的理解应该不难，这个图其实也表明，任何复杂的的系统，都是由多个简单的单元相互勾连交叉所形成的。</p> 
+ <p>这两节的代码主要用于解释概念，在实际开发时，我们会根据需要，对当前代码做相应修改，下一节，我们基于前面的变量声明解析过程，看看语句： <br> long int *x, y;</p> 
+ <p>所声明的两个变量，他们的类型系统和符号表是如何建立的。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

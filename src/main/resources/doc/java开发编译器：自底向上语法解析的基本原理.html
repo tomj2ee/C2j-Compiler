@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发编译器：自底向上语法解析的基本原理</title>
+ <body> java开发编译器：自底向上语法解析的基本原理</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>阅读博客的朋友可以到我的网易云课堂中，通过视频的方式查看代码的调试和执行过程： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">http://study.163.com/course/courseMain.htm?courseId=1002830012</a></p> 
+ <p>我开启了新的算法课程: <br> 剑指offer,算法面试技能全面提升指南 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002942008">http://study.163.com/course/courseMain.htm?courseId=1002942008</a></p> 
+ <p>在课程中，我将facebook, google, ms,amazon, BAT等公司使用的面试算法题收集起来进行分析，喜欢算法，特别是准备面试，冲击一线互联网公司的朋友不要错过。</p> 
+ <p>自底向上的语法解析，依赖于一种语法格式，我们可称之为LALR(1),跟LL(1)语法类似，LALR语法有以下特点,第二个L表示在解析语法时，从左向右读取语法文本。R表示right most, 也就是在做语法解析时，我们从推导表达式最右边的非终结符开始进行替换解析，LA意思是LOOK AHEAD, 跟LL(1)一样，LALR(1)语法解析时，也需要预先读取输入字符才能做下一步的解析。</p> 
+ <p>LR语法比LL语法更灵活，也更容易实现，正由于它的灵活性，使得在编译器实现中，做语法解析时，使用的都是LALR(1)的解析算法。下面，我们举个例子，看看LALR(1)语法解析的基本原理。</p> 
+ <p>自底向上语法解析的基本原理</p> 
+ <p>自底向上的语法解析算法，通过压栈式自动机，从底向上构建语法解析树。举个具体例子给大家看看： <br> 0. statement -&gt; expr <br> 1. expr -&gt; expr + term <br> 2. | term <br> 3. term -&gt; term * factor <br> 4. | factor <br> 5. factor -&gt; ( expr ) <br> 6. | NUM</p> 
+ <p>第一个表达式起始的第一个非终结符statement, 我们称之为全局非终结符。自底向上的语法只能有一个全局非终结符，并且全局非终结符只能出现在一个推导表达式的左边，我们注意到，上面的语法含有左递归，直接使用自顶向下的解析算法是解析不了的。</p> 
+ <p>我们看看，上面的语法，如何通过自底向上的解析算法来识别输入表达式：1 * （2 + 3）。 <br> 首先，我们需要一个堆栈，初始时堆栈为空。 <br> stack: input <br> NULL 1 * (2 + 3)</p> 
+ <p>首先， 我们读取一个输入，把输入对应的token压入堆栈，然后把输入指针指向下一个字符：</p> 
+ <p>NUM * ( 2 + 3)</p> 
+ <p>读取一个输入，把输入对应的token压入堆栈，然后把输入指针指向下一个字符,这个动作，我们称之为shift操作</p> 
+ <p>根据表达式6： factor -&gt; NUM, 此时堆栈上的NUM恰好是它的右边，于是将NUM出栈，然后将factor入栈：</p> 
+ <p>factor * ( 2 + 3)</p> 
+ <p>当堆栈上若干个元素恰好形成某个表达式的右边，算法会将这些元素全部出栈，然后将该表达式对应的左边非终结符入栈，这个动作，我们称之为reduce.</p> 
+ <p>根据表达式4: term -&gt; factor, 于是我们再做一次reduce操作，将factor出栈，term入栈，于是有： <br> term * ( 2 + 3)</p> 
+ <p>此时堆栈里的term, 构成了表达式2： expr -&gt; term的右边，似乎我们还可以再做一次reduce操作，但我们不能这么做，如果把term 出栈，expr入栈，然而，接下来我们要读入的字符是<em>, 在语法推导中，没有任何表达式右边是包含 expr </em> 这种形式的，所以我们不做reduce操作，于是我们做一个shift操作，读入下一个字符，将他的token压入堆栈，将输入指针指向下一个字符：</p> 
+ <p>term * ( 2 + 3 )</p> 
+ <p>term * 无法构成任何一个推导表达式的右边，所以继续做shift操作：</p> 
+ <p>term * ( 2 + 3 )</p> 
+ <p>堆栈上的元素仍然无法构成任何推导表达式的右边，所以继续做shift操作：</p> 
+ <p>term * ( NUM + 3 )</p> 
+ <p>此时栈顶元素是NUM, 根据表达式6： factor -&gt; NUM, 于是我们可以做一次reduce操作：</p> 
+ <p>term * ( factor + 3 )</p> 
+ <p>根据表达式4： term -&gt; factor, 再做一次reduce操作，于是有：</p> 
+ <p>term * ( term + 3 )</p> 
+ <p>由于下一个要读入的下一个字符是 +, 但是没有任何推导表达式的右边可以包含 term +, 于是我们再做一次reduce操作，（通过预读取下一个字符来决定做shift还是reduce, 这就是语法解析中LA表示的look ahead）. <br> 根据表达式2： expr -&gt; term, 我们做reduce操作，于是有：</p> 
+ <p>term * expr + 3 )</p> 
+ <p>由于此时还有输入要处理，所以我们做shift操作：</p> 
+ <p>term * expr + 3 )</p> 
+ <p>再做一次shift :</p> 
+ <p>term * expr + NUM )</p> 
+ <p>根据表达式6： factor -&gt; NUM, 我们可以做一次reduce操作：</p> 
+ <p>term * ( expr + factor )</p> 
+ <p>根据表达式4: term -&gt; factor, 继续做reduce操作：</p> 
+ <p>term * ( expr + term )</p> 
+ <p>此时，堆栈顶端的3个元素构成了表达式1的右边： <br> expr -&gt; expr + term <br> 的右边，于是做一次reduce操作，将堆栈上三个元素出栈，将expr入栈：</p> 
+ <p>term * ( expr )</p> 
+ <p>此时，我们再做一次shift 操作，将最后一个字符压入堆栈，有：</p> 
+ <p>term * ( expr ) NULL</p> 
+ <p>由于堆栈顶部的3个元素构成表达式 5： <br> factor -&gt; ( expr )</p> 
+ <p>的右边部分， 于是做一次reduce操作，将堆栈顶部的3个元素出栈，将factor 入栈：</p> 
+ <p>term * factor NULL</p> 
+ <p>此时堆栈上，三个元素构成表达式3：</p> 
+ <p>term -&gt; term * factor</p> 
+ <p>的右边部分，于是做一次reduce操作，将堆栈上三个元素出栈，将term 入栈：</p> 
+ <p>term NULL</p> 
+ <p>根据表达式2： expr -&gt; term, 做reduce操作，将term 出栈， expr 入栈：</p> 
+ <p>expr NULL</p> 
+ <p>根据表达式0： statement -&gt; expr ，做一次reduce操作，于是堆栈变为：</p> 
+ <p>statement NULL</p> 
+ <p>此时，堆栈中含有全局非终结符，此时解析结束，输入的文本可以被语法接受。</p> 
+ <p>由此我们可以总结一下自底向上的解析是如何进行的：</p> 
+ <ol>
+  <li>如果堆栈顶部的若干个元素可以构成某个推导表达式的右边，那么将这几个元素出栈，将表达式左边的非终结符入栈，也就是做一次reduce操作。</li>
+  <li>要不然，将当前字符对应的token压入堆栈，同时将输入指针指向下一个字符，也就是做一次shift操作。</li>
+  <li>如果做reduce操作后，全局非终结符被压入堆栈，并且输入为空，那么解析结束，输入的文本可以被语法接受。</li>
+ </ol> 
+ <p>自底向上的语法解析是如何处理递归情况的</p> 
+ <p>对于自顶向下的解析语法，左递归是不允许的，然而自底向上的解析，完全可以处理语法中出现的递归情况，例如语法： <br> 1. list -&gt; list NUM <br> 2. | NUM</p> 
+ <p>如果输入为123，那么解析堆栈的变化如下： <br> stack input operation <br> NULL 123 NULL <br> NUM 23 shift a NUM <br> list 23 reduce: list-&gt;NUM <br> list NUM 3 shift a NUM <br> list 3 reduce: list-&gt;list NUM <br> list NUM NULL shift a NUM <br> list NULL reduce: list-&gt;list NUM</p> 
+ <p>我们看到，堆栈中的元素从来不多过2个，因为每次执行一次shift 操作， NUM 入栈后，我们总能执行一次reduce操作。</p> 
+ <p>我们再看看另一种情况： <br> 1. list -&gt; NUM list <br> 2. | NUM <br> 此时，语法是右递归，我们看看输入为123时，解析堆栈在解析过程中的变化情况： <br> stack input operation <br> NULL 123 NULL <br> NUM 2 3 shift a NUM <br> NUM NUM 3 shift a NUM <br> NUM NUM NUM NULL shift a NUM <br> NUM NUM list NULL reduce, list-&gt;NUM <br> NUM list NULL reduce, list-&gt;NUM list <br> list NULL reduce,list-&gt;NUM list</p> 
+ <p>此时，所有的元素都得压入堆栈，reduce操作才可能发生。当语法中出现右递归时，自底向上的解析过程中，必然具备这样的特性，所以在使用自底向上的解析算法时，尽量避免语法中出现右递归的情况。</p> 
+ <p>下一节，我们看看，如何通过代码实现本节所描述的算法。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

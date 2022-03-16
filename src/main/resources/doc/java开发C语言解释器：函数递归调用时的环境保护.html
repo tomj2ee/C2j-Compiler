@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言解释器：函数递归调用时的环境保护</title>
+ <body> java开发C语言解释器：函数递归调用时的环境保护</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>函数调用时，参数的传递是通过堆栈实现的，也就是每次出现函数调用，系统会先设置好一个堆栈，然后把要传递的参数压入堆栈，函数执行完毕后，再将参数从堆栈中弹出。</p> 
+ <p>这样做的好处是，能够实现调用函数和被调函数间的环境隔离。特别是被调函数和调用函数是同一函数时，也就是函数递归调用时，相同变量不会相互影响。例如下面的代码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl">void f(<span class="hljs-keyword">int</span> i) {
+   <span class="hljs-keyword">if</span> (i &lt;=<span class="hljs-number">0</span>) {
+       i= <span class="hljs-number">0</span>；
+       a = <span class="hljs-number">0</span>;
+       <span class="hljs-keyword">return</span>;
+   }
+
+   <span class="hljs-keyword">int</span> a ;
+   a = i;
+   <span class="hljs-keyword">printf</span>(<span class="hljs-string">"before call , local variable are: i : <span class="hljs-variable">%d</span> ,  a : <span class="hljs-variable">%d</span>"</span>, i, a);
+
+    f(i-<span class="hljs-number">1</span>);
+
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"after call , local variable are: i : <span class="hljs-variable">%d</span> ,  a : <span class="hljs-variable">%d</span>"</span>, i, a);
+}
+
+void main() {
+    f(<span class="hljs-number">1</span>);
+}
+
+</code></pre> 
+ <p>代码中，函数f有两个变量，一个是参数i,另一个是局部变量a, 在f的实现中，有递归调用，在调用f(i-1)前，f把变量i和a的值打印出来，调用后再把两个变量打印一次，按道理，两次打印出的变量值必须是一样的。</p> 
+ <p>但是，如果使用我们当前开发的解释器运行上面程序的话，打印情况是这样： <br> before call , local variable are: i :1, a : 1</p> 
+ <p>after call , local variable are: i :0, a : 0</p> 
+ <p>也就是说，递归调用时，也就是运行被调函数后，主调函数自己的变量居然被改变了，这是不符合逻辑的。出现这个问题的原因是，我们解释器在实现时，变量的传递并不是通过堆栈实现的，我们对每个变量都会在符号表中存储一份唯一的拷贝，这样一来，实现回调函数时，由于两个函数会对同名变量就行修改，而这些同名变量只对应于符号表中的统一拷贝，也就是说，f函数中的变量i 和 a 只在符号表中存储一次，那么当f(i-1)运行时，它对变量i和a的更改，那么主叫函数对应的a和i也就更改了，这个问题如果不处理，那么解释器运行递归调用代码时，逻辑就会乱套了。</p> 
+ <p>我们的解决办法是，在调用子函数前，父函数先把自己的所以变量保存起来，调用完子函数后，再把调用前保存的变量值恢复到各个变量中，这个过程其实是模拟了用堆栈来传递参数的过程。</p> 
+ <p>由于实现函数调用的是ExtDefExecutor，因此相应改动也会发生在该类里面，代码修改如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+
+<span class="hljs-keyword">import</span> frontend.CGrammarInitializer;
+<span class="hljs-keyword">import</span> frontend.Symbol;
+<span class="hljs-keyword">import</span> frontend.TypeSystem;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExtDefExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> ArrayList&lt;Object&gt; argsList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+    ICodeNode root;
+    String funcName;
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        <span class="hljs-keyword">this</span>.root = root;
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION);
+        <span class="hljs-keyword">switch</span> (production) {
+        <span class="hljs-keyword">case</span> CGrammarInitializer.OptSpecifiers_FunctDecl_CompoundStmt_TO_ExtDef:
+            ICodeNode child = root.getChildren().get(<span class="hljs-number">0</span>); 
+            funcName = (String)child.getAttribute(ICodeKey.TEXT);
+            root.setAttribute(ICodeKey.TEXT, funcName);
+            saveArgs();
+            executeChild(root, <span class="hljs-number">0</span>);
+
+            executeChild(root, <span class="hljs-number">1</span>);
+            Object returnVal = getReturnObj();
+            clearReturnObj();
+
+            <span class="hljs-keyword">if</span> (returnVal != <span class="hljs-keyword">null</span>) {
+                root.setAttribute(ICodeKey.VALUE, returnVal);
+            }
+
+            isContinueExecution(<span class="hljs-keyword">true</span>);
+
+            restoreArgs();
+
+            <span class="hljs-keyword">break</span>;
+        }
+        <span class="hljs-keyword">return</span> root;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">saveArgs</span>() {
+        System.out.println(<span class="hljs-string">"Save arguments...."</span>);
+        TypeSystem typeSystem = TypeSystem.getTypeSystem();
+        ArrayList&lt;Symbol&gt; args = typeSystem.getSymbolsByScope(funcName);
+        <span class="hljs-keyword">int</span> count = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span> (count &lt; args.size()) {
+            Symbol arg = args.get(count);
+            Object value = arg.getValue();
+            argsList.add(value);
+            count++;
+            }
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">restoreArgs</span>() {
+        System.out.println(<span class="hljs-string">"Restore arguments...."</span>);
+        TypeSystem typeSystem = TypeSystem.getTypeSystem();
+        ArrayList&lt;Symbol&gt; args = typeSystem.getSymbolsByScope(funcName);
+        <span class="hljs-keyword">int</span> count = <span class="hljs-number">0</span>;
+
+        <span class="hljs-keyword">while</span> (args != <span class="hljs-keyword">null</span> &amp;&amp; count &lt; argsList.size()) {
+            IValueSetter setter = (IValueSetter)args.get(count);
+            <span class="hljs-keyword">try</span> {
+                Object value = argsList.get(count);
+                setter.setValue(value);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                e.printStackTrace();
+            }
+
+            count++;
+        }
+    }
+
+}
+</code></pre> 
+ <p>相比原来实现，我们增加了一下内容，首先是argsList，这个队列是用来存储函数所以相关变量的数值的。以前我们讲过，ExtDefExecutor的第0个孩子节点是FunctDeclExecutor，该对象的作用是获取输入参数，因此在执行第0个孩子节点前，需要把函数的参数及局部变量的值先存储起来，变量存储工作由saveArgs函数实现。</p> 
+ <p>saveArgs 的实现逻辑是，从类型系统中，根据函数名，找到该函数的所以输入参数和局部变量，得到变量的Symbol对象后，把变量的值读出来，依次存入到argsList列表对象中。</p> 
+ <p>接着运行函数体内的代码，在函数体内，可能会有递归调用，但由于我们已经把函数的相关变量值已经存储起来了，因此我们便不用担心函数在递归调用时，子函数的执行会把父函数的变量信息给破坏掉。</p> 
+ <p>函数体运行结束后，通过restoreArgs 将前面存储的变量值重新写回到各个对应变量中。</p> 
+ <p>我们还剩下一个问题是，如果从符号表中，得到与当前函数相关的所有变量对象。还记得我们以前设置了变量的作用范围吧，每个Symbol对象都包含一个域叫symbolScope，如果该变量是全局变量，那么该symbolScope的值是”global”，如果是函数参数，或是函数的局部变量，那么symbolScope的值就是对应的函数名。由此要找到与对应函数相关的变量对象就不难了，只要遍历symbol表中所以对象，找到symbolScope的值跟给定函数名一样的那些Symbol对象就可，由此在TypeSystem.java中做如下修改：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> TypeSystem {
+    <span class="hljs-keyword">public</span> ArrayList&lt;Symbol&gt; <span class="hljs-title">getSymbolsByScope</span>(String scope) {
+        ArrayList&lt;Symbol&gt; list = <span class="hljs-keyword">new</span> ArrayList&lt;Symbol&gt;();
+        <span class="hljs-keyword">for</span> (Map.Entry&lt;String, ArrayList&lt;Symbol&gt;&gt; entry : symbolTable.entrySet()) {
+            ArrayList&lt;Symbol&gt; args = entry.getValue();
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; args.size(); i++) {
+                Symbol sym = args.<span class="hljs-keyword">get</span>(i);
+                <span class="hljs-keyword">if</span> (sym.getScope().equals(scope)) {
+                    list.add(sym);
+                }
+            }
+        }
+
+        <span class="hljs-keyword">return</span> list;
+    }
+}</code></pre> 
+ <p>getSymbolsByScope函数的实现逻辑跟我们上面提到的做法是一致的。</p> 
+ <p>有了上面改动后，原来的递归调用出现的问题便可以顺利解决，由于快速排序算法需要使用到函数递归调用，因此，我们这一节的改进，为我们解释器最终能正确运行C语言实现的快速排序算法，奠定了坚实的基础。</p> 
+ <p>更详细的讲解和调试演示过程，请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416418741/4060626712004294596.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

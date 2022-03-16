@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言解释器：数组元素的读取和赋值</title>
+ <body> java开发C语言解释器：数组元素的读取和赋值</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>本节技术内容难度较大，请结合视频对代码的讲解和调试来理解本节内容： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>一个成熟的编译器或解释器，要能够解析和执行目标语言开发的逻辑复杂的程序代码，我们用java 开发的C语言解释器，能够执行用C语言开发的较为复杂的程序时，才称得上是合格的，从本节开始，我们致力于C语言解释器的开发，要实现的目标是，我们的解释器能够正确的解析用C语言实现的快速排序功能的程序，程序样例如下：</p> 
+ <pre class="prettyprint"><code class=" hljs sql">int a[] = {10, 8, 3, 5, 2, 4, 7 , 1, 6, 9}
+
+void quickSort(int <span class="hljs-operator"><span class="hljs-keyword">begin</span>, <span class="hljs-keyword">int</span> <span class="hljs-keyword">end</span>) {
+    <span class="hljs-keyword">int</span> pivot = a[(<span class="hljs-keyword">begin</span> + <span class="hljs-keyword">end</span>) / <span class="hljs-number">2</span>];</span>
+    int old_begin = <span class="hljs-operator"><span class="hljs-keyword">begin</span>;</span>
+    int old_end = <span class="hljs-operator"><span class="hljs-keyword">end</span>;</span>
+
+    while (<span class="hljs-operator"><span class="hljs-keyword">begin</span> &lt; <span class="hljs-keyword">end</span>) {
+       <span class="hljs-keyword">if</span> (a[<span class="hljs-keyword">begin</span>] &gt;= pivot) {
+           <span class="hljs-keyword">int</span> temp = a[<span class="hljs-keyword">begin</span>];</span>
+           a[<span class="hljs-operator"><span class="hljs-keyword">begin</span>] = a[<span class="hljs-keyword">end</span>];</span>
+           a[<span class="hljs-operator"><span class="hljs-keyword">end</span>] = temp;</span>
+           <span class="hljs-operator"><span class="hljs-keyword">end</span>--;</span>
+        } else {
+           <span class="hljs-operator"><span class="hljs-keyword">begin</span>++;</span>
+        }     
+    }
+
+    quickSort(old_begin, <span class="hljs-operator"><span class="hljs-keyword">begin</span>);</span>
+    quickSort(<span class="hljs-operator"><span class="hljs-keyword">end</span>, old_end);</span>
+}
+
+quickSort(0, 9);</code></pre> 
+ <p>如果我们的解释器能够顺利的执行上面代码，实现用快速排序算法对给定数组竞选排序的功能，那表明，我们的解释器就已经有一定的成熟度了。</p> 
+ <p>上面的程序中，需要对数组的相应元素进行读取或赋值，要想我们的解释器能够顺利执行上面代码，解释器需要懂得如何根据源代码指定的意图，对数组元素进行读取或赋值操作，本节的目标就是实现这一功能。完成本节功能后，我们的解释器能够正确的解析和执行下面的C语言代码：</p> 
+ <pre class="prettyprint"><code class="language-C hljs autohotkey">void f() {
+   int b <span class="hljs-comment">;</span>
+   int <span class="hljs-literal">a</span>[<span class="hljs-number">3</span>]<span class="hljs-comment">;</span>
+
+   <span class="hljs-literal">a</span>[<span class="hljs-number">0</span>] = <span class="hljs-number">1</span><span class="hljs-comment">;</span>
+   <span class="hljs-literal">a</span>[<span class="hljs-number">1</span>] = <span class="hljs-number">2</span><span class="hljs-comment">;</span>
+   b = <span class="hljs-literal">a</span>[<span class="hljs-number">0</span>] + <span class="hljs-literal">a</span>[<span class="hljs-number">1</span>]<span class="hljs-comment">;</span>
+}</code></pre> 
+ <p>我们先从语法上看，数组的定义是如何被语法表达式说明的。</p> 
+ <p>VAR_DECL -&gt; VAR_DECL LB CONST_EXPR RB</p> 
+ <p>上面的语法推导表达式用来对应数组的类型声明，其中VAR_DECL 解析 int a 这一部分语句， LB 对应左括号 ’[‘, CONST_EXPR 对应数组的长度，也就是元素个数，对应于代码就是数字3，RB 则对应右括号 ‘]’。</p> 
+ <p>对数组某个元素的访问则通过下面的语法表达式实现：</p> 
+ <p>UNARY -&gt; UNARY LB EXPR RB</p> 
+ <p>例如a[0], 那么表达式右边的UNARY 对应的就是数组变量名a, LB对应左括号’[‘, <br> EXPR对应数组0，RB对应右括号’]’.</p> 
+ <p>我们看看，a[0]对应的代码执行树是怎样的，执行树的构建过程的代码实现和讲解请参看视频。 <br> （图一：） <br> <img src="img/1647416934875/5401817232771070059.jpg" alt="这里写图片描述" title=""></p> 
+ <p>（图二：） <br> a[0] = 1, 也就是对数组元素赋值这一程序逻辑对应的执行树如下： <br> <img src="img/1647416935131/2935168409721223311.jpg" alt="这里写图片描述" title=""></p> 
+ <p>同理，语句a[1] = 2 所对应的执行树，结构与上面一模一样，只不过细节有点改变而已，于是生成的执行树结构如下： <br> （图三:） <br> <img src="img/1647416935405/113116605161769293.jpg" alt="这里写图片描述" title=""></p> 
+ <p>对于求和语句 b = a[0] + a[1], 解释器先对变量b构造其解析树： <br> （图四：） <br> <img src="img/1647416935640/6906983125898312662.jpg" alt="这里写图片描述" title=""></p> 
+ <p>我们再构造a[0] + a[1] 的代码执行树： <br> （图五：） <br> <img src="img/1647416935867/7835181631710330233.jpg" alt="这里写图片描述" title=""></p> 
+ <p>上面两部分执行树结合起来，得到最终求和赋值语句的执行树： <br> （图六） <br> <img src="img/1647416936129/-7002741330000908465.jpg" alt="这里写图片描述" title=""></p> 
+ <p>图二，图三，图六构成了整段代码执行树的主题部分，通过遍历这三部分执行树，执行相应动作，就可以实现本节数值赋值和读取程序所要实现的功能了。</p> 
+ <p>由于本节内容技术难度较大，请结合视频的讲解和调试演示来理解本节内容。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

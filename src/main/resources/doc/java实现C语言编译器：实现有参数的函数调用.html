@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java实现C语言编译器：实现有参数的函数调用</title>
+ <body> java实现C语言编译器：实现有参数的函数调用</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>上一节，我们实现了没有参数传递的函数调用，本节，我们看看如何实现有参数传递的函数调用。</p> 
+ <p>有参数的函数调用要比无参数的函数调用复杂的多，一个难题在于，我们需要确定参数变量的作用域，例如下面的代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">int</span> a;
+
+<span class="hljs-keyword">void</span> f(<span class="hljs-keyword">int</span> a, <span class="hljs-keyword">int</span> b) {
+    <span class="hljs-keyword">int</span> c;
+    c = a + b;
+}</code></pre> 
+ <p>在代码里，有两个同名变量都成为a, 显然，这两个变量作用范围不同，他们的存在并不矛盾。当两个变量存在符号表中时，由于名字相同，要实现参数传递时，必须确定参数的值传递给正确的变量a, 如果传递出错了，那么整个程序运行的逻辑就混乱了。</p> 
+ <p>因此，要实现有参数的函数调用，首要问题是确保把数值传递给对应左右域的相应变量。那么，如何确定变量的作用域呢。根据我们的代码实现，每个变量都对应一个Symbol对象，我们在该对象里添加一个字符串变量，用来表明该对象对应变量的作用域，如果变量是全局变量，那么它的作用域字符串内容为”global”,如果变量是某个函数的参数，或是定义在函数体内，那么该变量的作用域字符串就可以用该函数的名字来定义。</p> 
+ <p>以上面代码为例，第一个变量a，作用域字符串是”global”, 第二个变量a,作用域范围是”f”, 也就是它对应的函数名字。我们看看代码如何实现这个功能。</p> 
+ <p>一条变量定义的代码语句，例如： <br> int a; <br> 对应的语法表达式为： <br> EXT_DEF -&gt; OPT_SPECIFIERS EXT_DECL_LIST SEMI</p> 
+ <p>因此，当语法解析器读入一条语句，然后解析成上面的语句时，我们就知道，当前代码正在定义一个变量，此时就可以设置该变量的作用域字符串了，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs r">private void takeActionForReduce(int productNum) {
+<span class="hljs-keyword">...</span>
+case CGrammarInitializer.OptSpecifier_ExtDeclList_Semi_TO_ExtDef:
+        case CGrammarInitializer.TypeNT_VarDecl_TO_ParamDeclaration:
+        case CGrammarInitializer.Specifiers_DeclList_Semi_TO_Def:
+            Symbol symbol = (Symbol)attributeForParentNode;
+            TypeLink specifier = (TypeLink)(valueStack.get(valueStack.size() - <span class="hljs-number">3</span>));
+            typeSystem.addSpecifierToDeclaration(specifier, symbol);
+            typeSystem.addSymbolsToTable(symbol, symbolScope);
+<span class="hljs-keyword">...</span>
+}</code></pre> 
+ <p>我们早在语法解析是讲解过上面代码，当C语言定义一个变量时，上面对应的case代码会被执行，进而为生成的变量对应的Symbol对象，在把Symbol对象加入符号表时，需要多添加一个变量，就是symbolScope,这是一个字符串全局变量，用来代表当前变量所在的作用域，它的初始化方式如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> LRStateTableParser {
+    <span class="hljs-keyword">private</span> Lexer lexer;
+    <span class="hljs-keyword">int</span>    lexerInput = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">int</span>    nestingLevel = <span class="hljs-number">0</span>;
+    <span class="hljs-keyword">int</span>    enumVal = <span class="hljs-number">0</span>;
+    String text = <span class="hljs-string">""</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> final String GLOBAL_SCOPE = <span class="hljs-string">"global"</span>;
+    <span class="hljs-keyword">public</span> String symbolScope = GLOBAL_SCOPE;
+    ...
+    }</code></pre> 
+ <p>它一开始时就被初始化为”global”,因此，我们的解析器在遇到变量声明时，先把当前变量设置为global的，如果在后面的解析中，发现该变量并不是全局变量，那么在后面再修改该变量的作用范围。例如函数调用：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">void</span> f(<span class="hljs-keyword">int</span> a, <span class="hljs-keyword">int</span> b) {
+    <span class="hljs-keyword">int</span> c;
+    c = a + b;
+}
+</code></pre> 
+ <p>两个参数a,b,在第一次解析时，根据前面的case代码，会先为这两个变量的作用域字符串设置为”global”,然后继续解析，等到解析器解析完整个函数头，也就是当解释器根据以下表达式进行递归时：</p> 
+ <p>FUNCT_DECL -&gt; NEW_NAME LP VAR_LIST RP <br> FUNCT_DECL -&gt; NEW_NAME LP RP</p> 
+ <p>此时，我们可以得知，当前解析器解析的代码是函数头部定义，这个时候，我们将改变symbolScope的内容，把它变成当前解析函数的函数名，这样，接下来遇到变量声明时，它对应的作用域字符串就会变成当前的函数名。</p> 
+ <p>前面我们说过，参数定义时，解析器首先会把它的作用域设置为global,即使它是函数的参数，现在我们解析到函数头定义了，这时候是把原来参数的作用域范围更改为对应函数的正确时机，因此代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">takeActionForReduce</span>(<span class="hljs-keyword">int</span> productNum) {
+   ....
+<span class="hljs-keyword">case</span> CGrammarInitializer.NewName_LP_VarList_RP_TO_FunctDecl:
+            setFunctionSymbol(<span class="hljs-keyword">true</span>);
+            Symbol argList = (Symbol)valueStack.<span class="hljs-keyword">get</span>(valueStack.size() - <span class="hljs-number">2</span>);
+            ((Symbol)attributeForParentNode).args = argList;
+            typeSystem.addSymbolsToTable((Symbol)attributeForParentNode, symbolScope);
+            <span class="hljs-comment">//遇到函数定义，变量的scope名称要改为函数名,并把函数参数的scope改为函数名</span>
+            symbolScope = ((Symbol)attributeForParentNode).getName();
+            Symbol sym = argList;
+            <span class="hljs-keyword">while</span> (sym != <span class="hljs-keyword">null</span>) {
+                sym.addScope(symbolScope);
+                sym = sym.getNextSymbol();
+            }
+            <span class="hljs-keyword">break</span>;
+
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NewName_LP_RP_TO_FunctDecl:
+            setFunctionSymbol(<span class="hljs-keyword">false</span>);
+            typeSystem.addSymbolsToTable((Symbol)attributeForParentNode, symbolScope);
+            <span class="hljs-comment">//遇到函数定义，变量的scope名称要改为函数名</span>
+            symbolScope = ((Symbol)attributeForParentNode).getName();
+
+            <span class="hljs-keyword">break</span>;
+   ....
+}</code></pre> 
+ <p>从上面代码我们可以看到，在进入到函数头的解析时，解释器会把symbolScope设置为函数名，如果当前的case 等于CGrammarInitializer.NewName_LP_VarList_RP_TO_FunctDecl时，通过argList变量获得函数参数对应的输入参数变量链表，这个链表的建立，我们在前面章节中已经详细解释过。然后通过参数链表变量每个参数，把参数的作用域字符串改为对应的函数名。</p> 
+ <p>等到函数全部解析完毕后，变量的作用域就得重新转变为global, 根据前一节内容，我们知道，函数定义解析完毕对应的语法表达式为： <br> EXT_DEF -&gt; OPT_SPECIFIERS FUNCT_DECL COMPOUND_STMT</p> 
+ <p>当解释器根据上面的表达式进行递归时，我们知道，当前状态是函数解析结束，因此，我们在这时就需要把symbolScope的内容，重新改为global.代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs r"> private void takeActionForReduce(int productNum) {
+        <span class="hljs-keyword">switch</span>(productNum) {
+        <span class="hljs-keyword">...</span>
+        case CGrammarInitializer.OptSpecifiers_FunctDecl_CompoundStmt_TO_ExtDef:
+            symbol = (Symbol)valueStack.get(valueStack.size() - <span class="hljs-number">2</span>);
+            specifier = (TypeLink)(valueStack.get(valueStack.size() - <span class="hljs-number">3</span>));
+            typeSystem.addSpecifierToDeclaration(specifier, symbol);
+
+            //函数定义结束后，接下来的变量作用范围应该改为global
+            symbolScope = GLOBAL_SCOPE;
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">...</span>
+        }</code></pre> 
+ <p>请大家通过视频查看代码的讲解和调试过程，以便获得更详细的理解。</p> 
+ <p>接下来，我们看看函数是如何传递的。上一节，我们知道，没有参数输入的函数调用对应的语法表达式是:</p> 
+ <p>UNARY -&gt; UNARY LP RP</p> 
+ <p>那么如果，函数调用有参数的话，其对应的语法表达式是：</p> 
+ <p>UNARY -&gt; UNARY LP ARGS RP <br> ARGS -&gt; NO_COMMA_EXPR <br> ARGS -&gt; NO_COMMA_EXPR COMMA ARGS</p> 
+ <p>由此，我们需要构造一个ARGS对应的节点，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs r">public ICodeNode buildCodeTree(int production, String text) {
+        ICodeNode node = null;
+        Symbol symbol = null;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        <span class="hljs-keyword">...</span>
+        case CGrammarInitializer.NoCommaExpr_TO_Args:
+            node = ICodeFactory.createICodeNode(CTokenType.ARGS);
+            node.addChild(codeNodeStack.pop());
+            <span class="hljs-keyword">break</span>;
+
+        case CGrammarInitializer.NoCommaExpr_Comma_Args_TO_Args:
+            node = ICodeFactory.createICodeNode(CTokenType.ARGS);
+            node.addChild(codeNodeStack.pop());
+            node.addChild(codeNodeStack.pop());
+            <span class="hljs-keyword">break</span>;
+        <span class="hljs-keyword">...</span>
+        }</code></pre> 
+ <p>由此，我们还需要构造一个ARGS节点对应的Executor对象，以便实现参数解析，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+
+<span class="hljs-keyword">import</span> frontend.CGrammarInitializer;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ArgsExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION);
+        ArrayList&lt;Object&gt; argList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+        ICodeNode child ;
+        <span class="hljs-keyword">switch</span> (production) {
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NoCommaExpr_TO_Args:
+            child = (ICodeNode)executeChild(root, <span class="hljs-number">0</span>);
+            <span class="hljs-keyword">int</span> val = (Integer)child.getAttribute(ICodeKey.VALUE);
+            argList.add(val);
+            <span class="hljs-keyword">break</span>;
+
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NoCommaExpr_Comma_Args_TO_Args:
+            child = executeChild(root, <span class="hljs-number">0</span>);
+            val = (Integer)child.getAttribute(ICodeKey.VALUE);
+            argList.add(val);
+
+            child = (ICodeNode)executeChild(root, <span class="hljs-number">1</span>);
+            ArrayList&lt;Object&gt; list = (ArrayList&lt;Object&gt;)child.getAttribute(ICodeKey.VALUE);
+            argList.addAll(list);
+            <span class="hljs-keyword">break</span>;
+        }
+
+        root.setAttribute(ICodeKey.VALUE, argList);
+        <span class="hljs-keyword">return</span> root;
+    }
+
+}
+</code></pre> 
+ <p>对应函数调用，例如f(1,2,3) ,ArgsExecutor 的作用是构造一个参数队列： <br> 3 -&gt; 2 -&gt; 1, 然后把这个队列交给函数的执行对象，也就是ExtDefExecutor. <br> ArgsExecutor 先通过子执行子节点，把数字字符串读取成对应的数值，然后再把这些数值加入一个队列中返回。</p> 
+ <p>同时UnaryExecutor也要做相应变化，它需要让ArgsExecutor执行后，获取参数的数值列表，以便传递给ExtDefExecutor,对应的代码改动如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION); 
+        String text ;
+        Symbol symbol;
+        Object value;
+        ICodeNode child;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        ...
+        <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_LP_RP_TO_Unary:
+        <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_LP_ARGS_RP_TO_Unary:
+            <span class="hljs-comment">//先获得函数名</span>
+            String funcName = (String)root.getChildren().get(<span class="hljs-number">0</span>).getAttribute(ICodeKey.TEXT);
+            <span class="hljs-keyword">if</span> (production == CGrammarInitializer.Unary_LP_ARGS_RP_TO_Unary) {
+                ICodeNode argsNode = root.getChildren().get(<span class="hljs-number">1</span>);
+                ArrayList&lt;Object&gt; argList = (ArrayList&lt;Object&gt;)argsNode.getAttribute(ICodeKey.VALUE);
+                FunctionArgumentList.getFunctionArgumentList().setFuncArgList(argList); 
+            }
+
+            <span class="hljs-comment">//找到函数执行树头节点</span>
+            ICodeNode func = CodeTreeBuilder.getCodeTreeBuilder().getFunctionNodeByName(funcName);
+            <span class="hljs-keyword">if</span> (func != <span class="hljs-keyword">null</span>) {
+                Executor executor = ExecutorFactory.getExecutorFactory().getExecutor(func);
+
+                executor.Execute(func);
+            }
+            <span class="hljs-keyword">break</span>;
+        ...
+        }</code></pre> 
+ <p>executeChildren(root);首先让孩子节点先执行，由于ARGS是UNARY的孩子节点，所以executeChildren会让ArgsExecutor先执行，这样就可以获取参数数值列表。然后通过ARGS节点得到参数列表，也就是执行下面语句得到参数列表：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">ICodeNode argsNode = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(<span class="hljs-number">1</span>)<span class="hljs-comment">;</span>
+                ArrayList&lt;Object&gt; argList = (ArrayList&lt;Object&gt;)argsNode<span class="hljs-preprocessor">.getAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>)<span class="hljs-comment">;</span></code></pre> 
+ <p>有了列表之后，怎么把列表传递给函数执行体呢，是通过一个单子对象存储的：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctionArgumentList</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> FunctionArgumentList argumentList = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> ArrayList&lt;Object&gt; funcArgList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> FunctionArgumentList <span class="hljs-title">getFunctionArgumentList</span>() {
+        <span class="hljs-keyword">if</span> (argumentList == <span class="hljs-keyword">null</span>) {
+            argumentList = <span class="hljs-keyword">new</span> FunctionArgumentList();
+        }
+
+        <span class="hljs-keyword">return</span> argumentList;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFuncArgList</span>(ArrayList&lt;Object&gt; list) {
+        funcArgList = list;
+    }
+
+    <span class="hljs-keyword">public</span> ArrayList&lt;Object&gt; <span class="hljs-title">getFuncArgList</span>() {
+        <span class="hljs-keyword">return</span> funcArgList;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">FunctionArgumentList</span>() {}
+}
+</code></pre> 
+ <p>UnaryExecutor将获得的列表放入FunctionArgumentList对象，然后从根据要调用的函数名，从函数哈希表中找到函数执行树的头结点，接着再通过ExtDefExecutor去执行函数体内的语句。</p> 
+ <p>有了参数列表，接下来要做的是把参数列表对应的数值传递给参数，这样函数运行时才能获得输入的数值，数值传递是由FunctDeclExecutor实现的，代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctDeclExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> ArrayList&lt;Object&gt; argsList = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> ICodeNode currentNode;
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+    <span class="hljs-keyword">switch</span> (production) {
+    ...
+    <span class="hljs-keyword">case</span>  CGrammarInitializer.NewName_LP_VarList_RP_TO_FunctDecl:
+            symbol = (Symbol)root.getAttribute(ICodeKey.SYMBOL);
+            <span class="hljs-comment">//获得参数列表</span>
+            Symbol args = symbol.getArgList();
+            initArgumentList(args);
+
+            <span class="hljs-keyword">if</span> (args == <span class="hljs-keyword">null</span> || argsList == <span class="hljs-keyword">null</span> || argsList.isEmpty()) {
+                <span class="hljs-comment">//如果参数为空，那就是解析错误</span>
+                System.err.println(<span class="hljs-string">"Execute function with arg list but arg list is null"</span>);
+                System.exit(<span class="hljs-number">1</span>);
+            }
+
+            <span class="hljs-keyword">break</span>;
+    ...
+    }
+<span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">initArgumentList</span>(Symbol args) {
+        <span class="hljs-keyword">if</span> (args == <span class="hljs-keyword">null</span>) {
+            <span class="hljs-keyword">return</span>;
+        }
+
+
+        argsList = FunctionArgumentList.getFunctionArgumentList().getFuncArgList();
+        Collections.reverse(argsList);
+        Symbol eachSym = args;
+        <span class="hljs-keyword">int</span> count = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">while</span> (eachSym != <span class="hljs-keyword">null</span>) {
+            IValueSetter setter = (IValueSetter)eachSym;
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-comment">/*
+                 * 将每个输入参数设置为对应值并加入符号表
+                 */</span>
+                setter.setValue(argsList.get(count));
+                count++;
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+            }
+
+            eachSym = eachSym.getNextSymbol();
+        }
+    }
+
+}</code></pre> 
+ <p>它先通过FunctionArgumentList获得参数数值列表，然后找到对应的参数symbol对象列表，逐个把传入数值设置到参数对应的symbol中，当symbol参数数值设置正确后，函数体就能正确执行了</p> 
+ <p>函数体的执行在上一节我们曾经讨论过，再次不再讨论。请通过参看视频获得更详细的代码讲解和调试演示过程，以便增加理解。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416434151/6790013035411632573.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

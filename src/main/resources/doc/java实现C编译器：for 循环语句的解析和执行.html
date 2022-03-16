@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java实现C编译器：for 循环语句的解析和执行</title>
+ <body> java实现C编译器：for 循环语句的解析和执行</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>请参看视频以便获得更详细的代码讲解和演示流程： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a> <br> 大家或许发现，我们当前的C语言解释器，存在一个问题，那就是，当变量声明的同时如果付初值的话，解析器会出错，也就是对于下面语句：</p> 
+ <p>int a = 0;</p> 
+ <p>我们当前的解析器是解析不了的，必须把上面的语句转换为： <br> int a; <br> a = 0;</p> 
+ <p>要想使当前的解释器能够解析并执行变量声明同时付初值的功能，实现起来较为复杂，所以我决定先把这个功能放一放，把精力先使用在更为重要的实现上。</p> 
+ <p>本节我们要为解释器增加的功能是对for循环进行解析和执行，for循环的语法表达式如下：</p> 
+ <pre class="prettyprint"><code class=" hljs ruleslanguage">STATEMENT -&gt; <span class="hljs-keyword">FOR</span> LP OPT_EXPR  TEST SEMI END_OPT_EXPR RP STATEMENT(<span class="hljs-number">84</span>)</code></pre> 
+ <p>其对应的执行树结构如下： <br> <img src="img/1647416927978/-2961585443918750277.jpg" alt="这里写图片描述" title=""></p> 
+ <p>对于一个具体的循环语句：</p> 
+ <pre class="prettyprint"><code class=" hljs matlab"><span class="hljs-keyword">for</span> (<span class="hljs-built_in">i</span>= <span class="hljs-number">0</span>; <span class="hljs-built_in">i</span> &lt; <span class="hljs-number">3</span>; <span class="hljs-built_in">i</span>++) <span class="hljs-cell">{
+    a = a + <span class="hljs-number">1</span>;
+}</span></code></pre> 
+ <p>i = 0 对应于节点OptExpr, i &lt; 3 对应节点Test, i++ 对应节点EndOptExpr, a = a+ 1; 对应最后一个Statement节点。</p> 
+ <p>解释器在执行for 语句时，先执行OptExpr节点，然后执行Test节点，如果Test节点执行后返回的值大于0，则执行最下面的Statement节点，然后再执行EndOptExpr节点，也就是for 循环后面的i++语句。</p> 
+ <p>整个流程执行完毕后，解释着再次执行Test节点，如果执行后返回值不等于0，则继续执行最下面的Statement节点和EndPotExpr节点，如果返回值等于0，则执行结束。</p> 
+ <p>我们看看相关代码，在CodeTreeBuilder.java中，做以下改动：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm"> public ICodeNode buildCodeTree(int production, String text) {
+        ICodeNode node = null<span class="hljs-comment">;</span>
+        Symbol symbol = null<span class="hljs-comment">;</span>
+
+        switch (production) {
+        ...
+         case CGrammarInitializer<span class="hljs-preprocessor">.FOR</span>_OptExpr_Test_EndOptExpr_Statement_TO_Statement:
+            node = ICodeFactory<span class="hljs-preprocessor">.createICodeNode</span>(CTokenType<span class="hljs-preprocessor">.STATEMENT</span>)<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+
+            ....
+
+case CGrammarInitializer<span class="hljs-preprocessor">.Expr</span>_Semi_TO_OptExpr:
+        case CGrammarInitializer<span class="hljs-preprocessor">.Semi</span>_TO_OptExpr:
+            node = ICodeFactory<span class="hljs-preprocessor">.createICodeNode</span>(CTokenType<span class="hljs-preprocessor">.OPT</span>_EXPR)<span class="hljs-comment">;</span>
+            if (production == CGrammarInitializer<span class="hljs-preprocessor">.Expr</span>_Semi_TO_OptExpr) {
+                node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            }
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+
+        case CGrammarInitializer<span class="hljs-preprocessor">.Expr</span>_TO_EndOpt:
+            node = ICodeFactory<span class="hljs-preprocessor">.createICodeNode</span>(CTokenType<span class="hljs-preprocessor">.END</span>_OPT_EXPR)<span class="hljs-comment">;</span>
+            node<span class="hljs-preprocessor">.addChild</span>(codeNodeStack<span class="hljs-preprocessor">.pop</span>())<span class="hljs-comment">;</span>
+            <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+        ...
+        }</code></pre> 
+ <p>增加的代码就是用来构造前面所说的关于for循环执行树的几个节点。在StatementExecutor的实现中，我们增加了对for循环的<code>这里写代码片</code>实现：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StatementExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">enum</span> LoopType {
+        FOR,
+        WHILE,
+        DO_WHILE
+    };
+
+     <span class="hljs-annotation">@Override</span> 
+     <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+         <span class="hljs-keyword">int</span> production = (<span class="hljs-keyword">int</span>)root.getAttribute(ICodeKey.PRODUCTION);
+
+         <span class="hljs-keyword">switch</span> (production) {
+         <span class="hljs-keyword">case</span> CGrammarInitializer.FOR_OptExpr_Test_EndOptExpr_Statement_TO_Statement:
+             <span class="hljs-comment">//execute OptExpr</span>
+             executeChild(root, <span class="hljs-number">0</span>);
+
+             <span class="hljs-keyword">while</span>( isLoopContinute(root, LoopType.FOR) ) {
+                 <span class="hljs-comment">//execute statment in for body</span>
+                 executeChild(root, <span class="hljs-number">3</span>);
+
+                 <span class="hljs-comment">//execute EndOptExpr</span>
+                 executeChild(root, <span class="hljs-number">2</span>); 
+             }
+
+             <span class="hljs-keyword">break</span>;
+         <span class="hljs-keyword">default</span>:
+             executeChildren(root);
+
+             <span class="hljs-keyword">break</span>;
+         }
+
+         <span class="hljs-keyword">return</span> root;
+     }
+
+     <span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isLoopContinute</span>(ICodeNode root, LoopType type) {
+         ICodeNode res = <span class="hljs-keyword">null</span>;
+         <span class="hljs-keyword">if</span> (type == LoopType.FOR) {
+             res = executeChild(root, <span class="hljs-number">1</span>);
+             <span class="hljs-keyword">int</span> result = (Integer)res.getAttribute(ICodeKey.VALUE);
+             <span class="hljs-keyword">return</span> result != <span class="hljs-number">0</span>;
+         }
+
+         <span class="hljs-keyword">return</span> <span class="hljs-keyword">false</span>;
+     }
+}</code></pre> 
+ <p>executeChild(root, 0); 对应于执行树中的OptExpr节点，也就是执行for语句中的变量初始化语句，也就是i = 0; isLoopContinute 执行的是执行树中第二个节点，也就是Test节点，对应的是for 语句中的 i &lt; 3语句，如果返回的结果不等于0，也就是循环条件满足，那么执行循环体内部的语句代码，也就是通过调用 <br> executeChild(root, 3);, 从而执行执最下面的Statement节点，对应于例子中，就是 a = a + 1; 最后通过调用executeChild(root, 2); 执行EndOptExpr节点，对应于for循环，就是语句i++;</p> 
+ <p>我们需要添加新的代码，以便解释器能正确执行i++语句，该语句对应的语法表达式是： <br> UNARY -&gt; UNARY INCOP <br> 所以我们需要在UnaryNodeExecutor中，添加相应的实现代码，具体改动如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+        ....
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+         <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_Incop_TO_Unary:
+            symbol = (Symbol)root.getChildren().get(<span class="hljs-number">0</span>).getAttribute(ICodeKey.SYMBOL);
+            Integer val = (Integer)symbol.getValue();
+            IValueSetter setter;
+            setter = (IValueSetter)symbol;
+            <span class="hljs-keyword">try</span> {
+                setter.setValue(val + <span class="hljs-number">1</span>);
+            } <span class="hljs-keyword">catch</span> (Exception e) {
+                <span class="hljs-comment">// TODO Auto-generated catch block</span>
+                e.printStackTrace();
+                System.err.println(<span class="hljs-string">"Runtime Error: Assign Value Error"</span>);
+            }
+            <span class="hljs-keyword">break</span>;
+        }
+        }
+    }</code></pre> 
+ <p>我们先拿到变量i所对应的Symbol对象，通过该对象的ValueSetter接口，使得变量的值自加1.</p> 
+ <p>通过上面的代码改进，我们的解释器对C语言的执行能力可以得到进一步加强，可以正确解析和执行下面的C语言代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">void</span> f() {
+<span class="hljs-keyword">int</span> i;
+<span class="hljs-keyword">int</span> a;
+
+i = <span class="hljs-number">0</span>;
+a = <span class="hljs-number">0</span>;
+
+<span class="hljs-keyword">for</span> (i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-number">3</span>; i++) {
+    a = a + <span class="hljs-number">1</span>;
+}
+
+}
+</code></pre> 
+ <p>更深入具体的代码讲解，调试过程，请参看网易云课堂视频，也欢迎关注我的公众号，在公众号里，我集合了更多的技术内容的文档，代码和视频，其包含编译器，操作系统，算法，未来还会添加人工智能，深度学习等内容。 <br> <img src="img/1647416928069/961896595475096575.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

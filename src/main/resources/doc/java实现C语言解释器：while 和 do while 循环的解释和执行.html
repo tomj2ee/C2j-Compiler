@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java实现C语言解释器：while 和 do while 循环的解释和执行</title>
+ <body> java实现C语言解释器：while 和 do while 循环的解释和执行</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>随着解释器功能不断增强，当下我们的解释器已经能够对C语言的解释执行提供了很好的支持，我们有了循环，有了库函数调用，随着我们对解释器进一步的开发，它的功能必将也来越完善，越来越趋近于一个功能强大的C语言解释器，这一节，我们继续锦上添花，为当前的解释器增加对循环while 和 do … while的解释执行功能，完成这节后，我们的解释器开发将进入一个重大的里程碑，那就是，他将能解释执行用C语言编写的快速排序算法，进而也表明，我们开发的解释器已经达到了一个比较成熟的地步，完成本节代码后，我们的解释器将能解释执行下面代码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl"><span class="hljs-keyword">int</span> a[<span class="hljs-number">3</span>];
+
+void main() {
+<span class="hljs-keyword">int</span> i;
+i = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">while</span> (i &lt; <span class="hljs-number">3</span>) {
+    a[i] = i;
+    i++;
+    }
+
+i = <span class="hljs-number">0</span>;
+<span class="hljs-keyword">do</span> {
+        <span class="hljs-keyword">printf</span>(<span class="hljs-string">"<span class="hljs-variable">%d</span>"</span>,a[i]);
+        i++;
+    } <span class="hljs-keyword">while</span> (i &lt; <span class="hljs-number">3</span>);
+
+}</code></pre> 
+ <p>我们先看看两个循环对应的语法表达式：</p> 
+ <pre class="prettyprint"><code class=" hljs lasso"> STATEMENT <span class="hljs-subst">-&gt; </span><span class="hljs-keyword">WHILE</span> LP TEST RP STATEMENT
+ STATEMENT <span class="hljs-subst">-&gt; </span><span class="hljs-keyword">DO</span> STATEMENT <span class="hljs-keyword">WHILE</span> LP TEST RP SEMI</code></pre> 
+ <p>其中，WHILE , DO 对应的就是while 和 do 两个关键字， TEST对应while后面的循环条件。根据语法表达式，我们可以构造对应的语法执行树，在codeTreeBuilder.java中，添加如下代码：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> ICodeNode <span class="hljs-title">buildCodeTree</span>(<span class="hljs-keyword">int</span> production, String text) {
+        ICodeNode node = <span class="hljs-keyword">null</span>;
+        Symbol symbol = <span class="hljs-keyword">null</span>;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+        <span class="hljs-keyword">case</span> CGrammarInitializer.While_LP_Test_Rp_TO_Statement:
+        <span class="hljs-keyword">case</span> CGrammarInitializer.Do_Statement_While_Test_To_Statement:
+            node = ICodeFactory.createICodeNode(CTokenType.STATEMENT);
+            node.addChild(codeNodeStack.pop());
+            node.addChild(codeNodeStack.pop());
+            <span class="hljs-keyword">break</span>;
+        ....
+        }
+
+}</code></pre> 
+ <p>while 语句 和 do..while 语句的执行树节点构造方式是一样的，但逻辑上有些不同，对于while 语句， 添加的第一个节点是TEST, 也就是跟在while 后面的条件判断语句，第二个节点这是在大括号里面的STATEMENT。但是对于do…while语句，第一个节点对应的是大括号里面的STATEMENT, 第二个节点才是用于判断循环是否结束的条件判断语句。</p> 
+ <p>对两个循环语句的解释执行还是落在StatementExecutor的实现中：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">StatementExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">enum</span> LoopType {
+        FOR,
+        WHILE,
+        DO_WHILE
+    };
+
+     <span class="hljs-annotation">@Override</span> 
+     <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+         <span class="hljs-keyword">int</span> production = (<span class="hljs-keyword">int</span>)root.getAttribute(ICodeKey.PRODUCTION);
+         ICodeNode node;
+
+         <span class="hljs-keyword">switch</span> (production) {
+         ....
+         <span class="hljs-keyword">case</span> CGrammarInitializer.While_LP_Test_Rp_TO_Statement:
+             <span class="hljs-keyword">while</span> (isLoopContinute(root, LoopType.WHILE)) {
+                 executeChild(root, <span class="hljs-number">1</span>);
+             }
+             <span class="hljs-keyword">break</span>;
+
+         <span class="hljs-keyword">case</span> CGrammarInitializer.Do_Statement_While_Test_To_Statement:
+             do {
+                 executeChild(root, <span class="hljs-number">0</span>);
+             } <span class="hljs-keyword">while</span>(isLoopContinute(root, LoopType.DO_WHILE));
+
+             <span class="hljs-keyword">break</span>;
+         ....
+         }
+
+<span class="hljs-keyword">private</span> <span class="hljs-keyword">boolean</span> <span class="hljs-title">isLoopContinute</span>(ICodeNode root, LoopType type) {
+         ICodeNode res = <span class="hljs-keyword">null</span>;
+         <span class="hljs-keyword">if</span> (type == LoopType.FOR || type == LoopType.DO_WHILE) {
+             res = executeChild(root, <span class="hljs-number">1</span>);
+         }
+         <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (type == LoopType.WHILE) {
+             res = executeChild(root, <span class="hljs-number">0</span>);
+         }
+
+         <span class="hljs-keyword">int</span> result = (Integer)res.getAttribute(ICodeKey.VALUE);
+         <span class="hljs-keyword">return</span> res != <span class="hljs-keyword">null</span> &amp;&amp; result != <span class="hljs-number">0</span>;
+
+     }
+}</code></pre> 
+ <p>对while 和 do…while 语句的执行稍微有所不同，执行while语句时，我们先执行isLoopContinue，也就是先判断循环条件是否成立，如果成立的话，再执行大括号里面的语句集合，对应do…while, 我们先把大括号里面的语句集合执行一次，然后再判断循环条件是否成立。</p> 
+ <p>从isLoopContinute函数的实现我们可以发现，do..while 和 for 循环一样，下标为1的节点对应的是循环条件判断，而对于while，下标为0的子节点才是对应于循环条件判断。</p> 
+ <p>有了上面代码后，我们解释器就能解释执行while 和 do…while 两个循环语句了。至此，解释器具备已了解释执行快速排序算法的相应功能，在下一节，我们将用C语言实现快速排序算法，然后使用我们构建的解释器来解释执行。能够执行具备一定复杂度的C语言代码，标识着我们的解释器已经达到了一定的专业完备性。</p> 
+ <p>更加详细的代码讲解和调试演示过程，请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416433422/-6289471508097897813.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

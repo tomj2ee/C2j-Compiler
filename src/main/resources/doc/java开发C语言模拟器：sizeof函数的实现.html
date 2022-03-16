@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言模拟器：sizeof函数的实现</title>
+ <body> java开发C语言模拟器：sizeof函数的实现</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>在C语言中，有一个非常基础，也是极其重要的函数，就是sizeof, 这个函数的作用是计算变量所占内存的大小。只有知道了对应变量的大小，那么我们才能动态分配对应大小的内存。</p> 
+ <p>如果sizeof 计算的对象，仅仅是简单的基础类型变量，例如 int， char 等，那么他们的大小很容易计算，由于我们当前代码假设运行在32位机器上，因此如果传入sizeof的变量是int , 或是 指针类型，那么该变量的内存大小就是4字节，如果变量的类型是short, 那么它的内存大小就是2字节，如果是char, 那么内存大小就是1字节。</p> 
+ <p>因此实现sizeof的时候，我们通过传入的变量名，找到它对应的Symbol对象，通过Symbol对象找到它的数据类型，根据上面的分类就可以得知该对象的内存大小了。</p> 
+ <p>问题在于，sizeof传入的可能是符合数据类型，也就是说，传入的变量可以是结构体，例如下面的结构体：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"> <span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">int</span> p;
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">int</span> arr[<span class="hljs-number">3</span>];
+    };
+</code></pre> 
+ <p>结构体的内存大小，实际上是组成该结构体的的内部成员大小之和，因此计算结构体TAG的内存大小，就得计算p, c, 和arr[3]这三个成员的大小后求和。</p> 
+ <p>一种更难的情况是结构体间套，也就是一个结构体里面还包含结构体成员，这么看来，sizeof要正确实现，必须是一种层级递归的方式。</p> 
+ <p>我们采用深度优先的搜索来实现sizeof, 深度优先搜索主要是用于图的遍历，这里我们把该算法平移到sizeof的计算上来，深度优先搜索的基本原理如下，假定一个有向图： <br> <img src="img/1647416416986/7773839861726529703.jpg" alt="这里写图片描述" title=""></p> 
+ <p>在遍历上面的有向图时，如果被访问的节点含有子节点，那么先访问其子节点，然后在访问该节点或该节点的兄弟。那么上面的有向图，深度优先遍历的次序可以如下：1-&gt;2-&gt;3-&gt;4-&gt;3-&gt;2-&gt;5-&gt;6-&gt;5-&gt;1</p> 
+ <p>同理，在实现sizeof函数时，如果传进来的变量是结构体，那么我们先通过sizeof计算结构体每个成员的大小，然后再把每个成员的大小加总，得到当前结构体的大小。</p> 
+ <p>由此sizeof函数实现的基本逻辑是： <br> 1， 如果传入的变量是基本数据类型，那么直接返回该变量的字节大小。 <br> 2， 如果传入的变量是结构体，那么再次调用sizeof计算每个成员的大小，然后加总得到当前结构体的大小。 <br> 3， 如果当前变量是数组类型，那么把前两步计算的大小乘以数组的元素个数，得到的就是当前变量的大小。</p> 
+ <p>由于sizeof是库函数，因此它的实现在ClibCall.java 中，实现代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> ClibCall {
+    <span class="hljs-keyword">private</span> Set&lt;String&gt; apiSet;
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">ClibCall</span>() {
+        apiSet = <span class="hljs-keyword">new</span> HashSet&lt;String&gt;();
+        apiSet.add(<span class="hljs-string">"printf"</span>);
+        apiSet.add(<span class="hljs-string">"malloc"</span>);
+        apiSet.add(<span class="hljs-string">"sizeof"</span>);
+    }
+    ....
+     <span class="hljs-keyword">public</span> Object <span class="hljs-title">invokeAPI</span>(String funcName) {
+        <span class="hljs-keyword">switch</span> (funcName) {
+
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"printf"</span>:
+            <span class="hljs-keyword">return</span> handlePrintfCall();
+
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"malloc"</span>:
+            <span class="hljs-keyword">return</span> handleMallocCall();
+
+        <span class="hljs-keyword">case</span> <span class="hljs-string">"sizeof"</span>:
+            <span class="hljs-keyword">return</span> handleSizeOfCall();
+        <span class="hljs-keyword">default</span>:
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+        }
+    }
+<span class="hljs-keyword">private</span> Integer <span class="hljs-title">calculateVarSize</span>(Symbol symbol) {
+        <span class="hljs-keyword">int</span> size = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">if</span> (symbol.getArgList() == <span class="hljs-keyword">null</span>) {
+            size = symbol.getByteSize();
+        } <span class="hljs-keyword">else</span> {
+            Symbol head = symbol.getArgList();
+            <span class="hljs-keyword">while</span> (head != <span class="hljs-keyword">null</span>) {
+                size += calculateVarSize(head);
+                head = head.getNextSymbol();
+            }
+        }
+
+        Declarator declarator = symbol.getDeclarator(Declarator.ARRAY); 
+        <span class="hljs-keyword">if</span> ( declarator != <span class="hljs-keyword">null</span>) {
+            size = size * declarator.getElementNum();
+        }
+
+        <span class="hljs-keyword">return</span> size;
+    }</code></pre> 
+ <p>calculateVarSize就是解释器对sizeof函数的解释执行，传入参数是sizeof变量对应的Symbol对象，如果getArgsList 返回为空，那表明当前变量不是结构体类型，于是直接通过调用Symbol的getByteSize 函数获取基础数据类型的字节大小。</p> 
+ <p>如果getArgsList返回不是空，那么当前变量类型是结构体，于是把结构体中的每个成员取得，然后递归的调用calculateVarSize去计算每个成员的内存大小。</p> 
+ <p>最后判断下，当前变量是否是数组，如果是数组的话，那么就要把单个变量的大小乘以数组中元素个数，才能得到总的内存大小。</p> 
+ <p>以上代码就是实现sizeof的主逻辑。解释器还有一些地方，代码需要变动，函数调用需要获得传入参数，以前我们的做法是，先获得传入参数的值，然后把这些值存到FunctionArgumentList这个类中，以便解释器执行库函数时容易取得传入参数的值。</p> 
+ <p>sizeof函数需要的不再是变量的值，而是变量对应的Symbol对象，因此我们在解析传入参数时，需要得到参数对应的Symbol对象，由于解析传入参数是在类 <br> ArgsExecutor中实现的，因此需要在该类中，增加获取输入参数Symbol对象的代码：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+
+<span class="hljs-keyword">import</span> frontend.CGrammarInitializer;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ArgsExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> {<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION);
+        ArrayList&lt;Object&gt; argList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+        ArrayList&lt;Object&gt; symList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+        ICodeNode child ;
+        <span class="hljs-keyword">switch</span> (production) {
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NoCommaExpr_TO_Args:
+            child = (ICodeNode)executeChild(root, <span class="hljs-number">0</span>);
+            Object objVal = child.getAttribute(ICodeKey.VALUE);
+            argList.add(objVal);
+            objVal = child.getAttribute(ICodeKey.SYMBOL);
+            symList.add(objVal);
+            <span class="hljs-keyword">break</span>;
+
+        <span class="hljs-keyword">case</span> CGrammarInitializer.NoCommaExpr_Comma_Args_TO_Args:
+            child = executeChild(root, <span class="hljs-number">0</span>);
+            objVal = child.getAttribute(ICodeKey.VALUE);
+            argList.add(objVal);
+            objVal = child.getAttribute(ICodeKey.SYMBOL);
+            symList.add(objVal);
+
+            child = (ICodeNode)executeChild(root, <span class="hljs-number">1</span>);
+            ArrayList&lt;Object&gt; list = (ArrayList&lt;Object&gt;)child.getAttribute(ICodeKey.VALUE);
+            argList.addAll(list);
+            list = (ArrayList&lt;Object&gt;)child.getAttribute(ICodeKey.SYMBOL);
+            symList.add(list);
+            <span class="hljs-keyword">break</span>;
+        }
+
+        root.setAttribute(ICodeKey.VALUE, argList);
+        root.setAttribute(ICodeKey.SYMBOL, symList);
+        <span class="hljs-keyword">return</span> root;
+    }
+
+}
+</code></pre> 
+ <p>最后，FunctionArgumentList这个类也要做一些改动，原来这个类只提供接口存储参数的值，这次要增加接口，存储参数的Symbol对象，改动如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.Collections;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">FunctionArgumentList</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> FunctionArgumentList argumentList = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">private</span> ArrayList&lt;Object&gt; funcArgList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+    <span class="hljs-keyword">private</span> ArrayList&lt;Object&gt; argSymList = <span class="hljs-keyword">new</span> ArrayList&lt;Object&gt;();
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> FunctionArgumentList <span class="hljs-title">getFunctionArgumentList</span>() {
+        <span class="hljs-keyword">if</span> (argumentList == <span class="hljs-keyword">null</span>) {
+            argumentList = <span class="hljs-keyword">new</span> FunctionArgumentList();
+        }
+
+        <span class="hljs-keyword">return</span> argumentList;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFuncArgList</span>(ArrayList&lt;Object&gt; list) {
+        funcArgList = list;
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setFuncArgSymbolList</span>(ArrayList&lt;Object&gt; list) {
+        <span class="hljs-keyword">this</span>.argSymList = list;
+    }
+
+    <span class="hljs-keyword">public</span> ArrayList&lt;Object&gt; <span class="hljs-title">getFuncArgList</span>(<span class="hljs-keyword">boolean</span> reverse) {
+
+        <span class="hljs-keyword">if</span> (reverse == <span class="hljs-keyword">true</span>) {
+            Collections.reverse(funcArgList);
+        }
+
+        <span class="hljs-keyword">return</span> funcArgList;
+    }
+
+    <span class="hljs-keyword">public</span> ArrayList&lt;Object&gt; <span class="hljs-title">getFuncArgSymsList</span>(<span class="hljs-keyword">boolean</span> reverse) {
+        <span class="hljs-keyword">if</span> (reverse == <span class="hljs-keyword">true</span>) {
+            Collections.reverse(argSymList);
+        }
+
+        <span class="hljs-keyword">return</span> argSymList;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">FunctionArgumentList</span>() {}
+}</code></pre> 
+ <p>有了以上的代码实现后，我们的解释器就可以解释执行如下C语言代码了：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">void</span> main() {
+    <span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">int</span> p;
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">int</span> arr[<span class="hljs-number">3</span>];
+    };
+
+    <span class="hljs-keyword">struct</span> TAG myTag[<span class="hljs-number">3</span>];
+    <span class="hljs-keyword">int</span> size ;
+    size = <span class="hljs-keyword">sizeof</span>(myTag);
+    <span class="hljs-built_in">printf</span>(<span class="hljs-string">"The size of struct TAG is : %d"</span>, size);
+}
+</code></pre> 
+ <p>上面的代码中，定义了一个结构体叫TAG, 结构体里有三个成员，其中一个是数组，一个结构体变量的内存大小是：4 + 1 + 4*3 = 17. 由于代码中又定义了一个含有三个成员的结构体数组myTag，因此myTag的总大小是51 = 17*3.</p> 
+ <p>我们的解释器解释执行上面代码后得到的结果为： <br> The size of struct TAG is : 51</p> 
+ <p>也就是我们的解释器确实能够正确的执行sizeof函数。</p> 
+ <p>更详细的代码讲解和调试演示，请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416417032/3466389992295406847.jpg" alt="这里写图片描述" title=""> </p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

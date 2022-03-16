@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C解释器：实现解释器内部模块间的通讯</title>
+ <body> java开发C解释器：实现解释器内部模块间的通讯</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>我们完成结构体的解析执行后，当前的解释器已经相对完善了，如果不考虑性能因素，当前解释器能够解释执行很多C语言程序，但当前解释器还有一些问题，我们看下面这段C程序：</p> 
+ <pre class="prettyprint"><code class=" hljs cpp"><span class="hljs-keyword">void</span> main() {
+    <span class="hljs-keyword">struct</span> TAG {
+        <span class="hljs-keyword">char</span> c;
+        <span class="hljs-keyword">int</span> p;
+        <span class="hljs-keyword">int</span> arr[<span class="hljs-number">3</span>];
+    }tag;
+
+    <span class="hljs-keyword">struct</span> TAG* pTag;
+    pTag-&gt;p = <span class="hljs-number">400</span>;
+    <span class="hljs-built_in">printf</span>(<span class="hljs-string">"value of p in struct pTag is : %d"</span>, pTag-&gt;p);
+}</code></pre> 
+ <p>上面程序被我们的解释器执行后，printf语句把pTag-&gt;p 的值输出为400，这显然是有问题的，因为pTag是个结构体指针，在没有为其分配动态内存的情况下，直接对成员变量进行赋值访问是错误的。接下来的几节，我们将致力于解决 <br> 这个问题。</p> 
+ <p>要解决这个问题，我们需要实现的一点是，在解释器内部的各个执行模块间实现相互通讯。我们知道，不同的C语言语句，是由不同的Executor来执行的。这些 <br> Executor之间互不关联，但随着解释器功能的增强，我们需要它们之间实现相互通讯。例如当执行赋值语句的执行器在执行前和后执行后需要发出消息，让其他执行器知道，以便让解释器的其他模块有机会做相应的操作。</p> 
+ <p>我们将使用观察者模式来搭建联通不同解释器之间的桥梁，我们先看看这个“桥梁”的接口定义：</p> 
+ <pre class="prettyprint"><code class=" hljs cs"><span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> IExecutorBrocaster {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brocastBeforeExecution</span>(ICodeNode node);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brocastAfterExecution</span>(ICodeNode node);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">registerReceiverForBeforeExe</span>(IExecutorReceiver receiver);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">registerReceiverForAfterExe</span>(IExecutorReceiver receiver);
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">removeReceiver</span>(IExecutorReceiver receiver);
+}</code></pre> 
+ <p>当有某个Executor想通知其他模块相关信息时，例如在执行之前要通知其他模块时，可以调用brocastBeforeExecution 接口，如果在执行之后想通知其他模块，那么就可以调用brocastAfterExecution接口。</p> 
+ <p>如果解释器中某个模块想接收其他模块发送的消息，它可以实现 <br> IExecutorReceiver接口，然后调用接口registerReceiverForBeforeExe 和 <br> registerReceiverForAfterExe , 前者接收executor在执行前的消息，后者接收executor在执行之后的消息。</p> 
+ <p>我们看看它的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> backend;
+<span class="hljs-keyword">import</span> java.util.ArrayList;
+<span class="hljs-keyword">import</span> java.util.List;
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ExecutorBrocasterImpl</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IExecutorBrocaster</span>{<!-- --></span>
+    <span class="hljs-keyword">private</span> List&lt;IExecutorReceiver&gt; beforeExecutionReceiver = <span class="hljs-keyword">new</span> ArrayList&lt;IExecutorReceiver&gt;();
+    <span class="hljs-keyword">private</span> List&lt;IExecutorReceiver&gt; afterExecutionReceiver = <span class="hljs-keyword">new</span> ArrayList&lt;IExecutorReceiver&gt;();
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> ExecutorBrocasterImpl instance = <span class="hljs-keyword">null</span>;
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> IExecutorBrocaster <span class="hljs-title">getInstance</span>() {
+        <span class="hljs-keyword">if</span> (instance == <span class="hljs-keyword">null</span>) {
+            instance = <span class="hljs-keyword">new</span> ExecutorBrocasterImpl();
+        }
+
+        <span class="hljs-keyword">return</span> instance;
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-title">ExecutorBrocasterImpl</span>() {
+
+    }
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brocastBeforeExecution</span>(ICodeNode node) {
+        notifyReceivers(beforeExecutionReceiver, node);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">brocastAfterExecution</span>(ICodeNode node) {
+        notifyReceivers(afterExecutionReceiver, node);
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">registerReceiverForBeforeExe</span>(IExecutorReceiver receiver) {
+        <span class="hljs-keyword">if</span> (beforeExecutionReceiver.contains(receiver) == <span class="hljs-keyword">false</span>) {
+            beforeExecutionReceiver.add(receiver);
+        }
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">registerReceiverForAfterExe</span>(IExecutorReceiver receiver) {
+        <span class="hljs-keyword">if</span> (afterExecutionReceiver.contains(receiver) == <span class="hljs-keyword">false</span>) {
+            afterExecutionReceiver.add(receiver);
+        }
+    }
+
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">void</span> <span class="hljs-title">notifyReceivers</span>(List&lt;IExecutorReceiver&gt; receivers, ICodeNode node) {
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; receivers.size(); i++) {
+            receivers.get(i).handleExecutorMessage(node);
+        }
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">removeReceiver</span>(IExecutorReceiver receiver) {
+        <span class="hljs-keyword">if</span> (beforeExecutionReceiver.contains(receiver)) {
+            beforeExecutionReceiver.remove(receiver);
+        }
+
+        <span class="hljs-keyword">if</span> (afterExecutionReceiver.contains(receiver)) {
+            afterExecutionReceiver.remove(receiver);
+        }
+
+    }
+}
+</code></pre> 
+ <p>它的实现逻辑比较简单，把接受者存储到相关队列中，如果有Executor发布执行前通知，那么该对象就把beforeExecutionReceiver队列中的对象全部调用IExecutorReceiver 的接口执行一遍。</p> 
+ <p>如果有Executor发布执行后的消息，那么该对象就把afterExecutionReceiver队列中的对象，全部调用IExecutorReceiver的接口执行一遍。</p> 
+ <p>在每个Executor在执行前和执行后，我们都让他们发出消息，以便其他模块及时处理，在BaseExecutor.java中做如下修改：</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">protected void executeChildren(ICodeNode root) {
+        ExecutorFactory factory = ExecutorFactory<span class="hljs-preprocessor">.getExecutorFactory</span>()<span class="hljs-comment">;</span>
+        root<span class="hljs-preprocessor">.reverseChildren</span>()<span class="hljs-comment">;</span>
+
+        int i = <span class="hljs-number">0</span><span class="hljs-comment">;</span>
+        while (i &lt; root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.size</span>()) {
+
+            if (continueExecute != true) {
+                <span class="hljs-keyword">break</span><span class="hljs-comment">;</span>
+            }
+
+            ICodeNode child = root<span class="hljs-preprocessor">.getChildren</span>()<span class="hljs-preprocessor">.get</span>(i)<span class="hljs-comment">;</span>
+
+            executorBrocaster<span class="hljs-preprocessor">.brocastBeforeExecution</span>(child)<span class="hljs-comment">;</span>
+
+            Executor executor = factory<span class="hljs-preprocessor">.getExecutor</span>(child)<span class="hljs-comment">;</span>
+            if (executor != null) {
+                executor<span class="hljs-preprocessor">.Execute</span>(child)<span class="hljs-comment">;    </span>
+            }
+            else {
+                System<span class="hljs-preprocessor">.err</span><span class="hljs-preprocessor">.println</span>(<span class="hljs-string">"Not suitable Executor found, node is: "</span> + child<span class="hljs-preprocessor">.toString</span>())<span class="hljs-comment">;</span>
+            }
+
+            executorBrocaster<span class="hljs-preprocessor">.brocastAfterExecution</span>(child)<span class="hljs-comment">;</span>
+
+            i++<span class="hljs-comment">;</span>
+        }
+    }</code></pre> 
+ <p>我们再看看IExecutorReceiver的实现：</p> 
+ <pre class="prettyprint"><code class=" hljs cs">package backend;
+
+
+<span class="hljs-keyword">public</span> <span class="hljs-keyword">interface</span> IExecutorReceiver {
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleExecutorMessage</span>(ICodeNode code);
+}
+</code></pre> 
+ <p>有了模块间的消息收发机制后，我们做个试验，让UnaryExecutor去接收NoCommandExecutor的相关信息。UnaryExecutor如果想要接收NoCommandExecutor执行后的信息，特别是接收变量赋值后的事件通知， <br> 那么它需要实现IExecutorReceiver接口，然后把自己注册到ExecutorBrocasterImpl对象中。代码如下：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IExecutorReceiver</span>{<!-- --></span>
+....
+<span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+        <span class="hljs-keyword">switch</span> (production) {
+        ....
+        <span class="hljs-keyword">case</span> CGrammarInitializer.Unary_StructOP_Name_TO_Unary:
+            child = root.getChildren().get(<span class="hljs-number">0</span>);
+            String fieldName = (String)root.getAttribute(ICodeKey.TEXT);
+            symbol = (Symbol)child.getAttribute(ICodeKey.SYMBOL);
+
+            Symbol args = symbol.getArgList();
+            <span class="hljs-keyword">while</span> (args != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">if</span> (args.getName().equals(fieldName)) {
+                    <span class="hljs-keyword">break</span>;
+                }
+
+                args = args.getNextSymbol();
+            }
+
+            <span class="hljs-keyword">if</span> (args == <span class="hljs-keyword">null</span>) {
+                System.err.println(<span class="hljs-string">"access a filed not in struct object!"</span>);
+                System.exit(<span class="hljs-number">1</span>);
+            }
+
+            root.setAttribute(ICodeKey.SYMBOL, args);
+            root.setAttribute(ICodeKey.VALUE, args.getValue());
+
+            <span class="hljs-keyword">if</span> (isSymbolStructPointer(symbol) == <span class="hljs-keyword">true</span>) {
+                structObjSymbol = symbol;
+                monitorSymbol = args;
+                ExecutorBrocasterImpl.getInstance().registerReceiverForAfterExe(<span class="hljs-keyword">this</span>);
+            }
+            <span class="hljs-keyword">break</span>;
+        ....
+        }
+    }
+<span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">handleExecutorMessage</span>(ICodeNode code) {
+        <span class="hljs-keyword">int</span> productNum = (Integer)code.getAttribute(ICodeKey.PRODUCTION);
+        Object object = code.getAttribute(ICodeKey.SYMBOL);
+        <span class="hljs-keyword">if</span>(object == <span class="hljs-keyword">null</span> || (object <span class="hljs-keyword">instanceof</span> Symbol) == <span class="hljs-keyword">false</span>) {
+            <span class="hljs-keyword">return</span>;
+        }
+
+        Symbol symbol = (Symbol)object;
+        <span class="hljs-keyword">if</span> (productNum == CGrammarInitializer.NoCommaExpr_Equal_NoCommaExpr_TO_NoCommaExpr
+                &amp;&amp; symbol == monitorSymbol) {
+            System.out.println(<span class="hljs-string">"UnaryNodeExecutor receive msg for assign execution"</span>);
+
+        }
+    }
+....
+}</code></pre> 
+ <p>当解释器解析到有关结构体的访问或赋值时，UnaryNodeExecutor会在ExecutorBrocasterImpl中注册它自己，准备监听赋值语句的执行，一旦赋值语句被NoCommanExecutor执行后，它就会得到通知，于是他的handleExecutorMessage就会被调用。此时UnaryNodeExecutor会检测当前 <br> 被赋值的变量是否是结构体成员，如果是，它就打印出一条语句。</p> 
+ <p>有了执行组件间的消息通讯机制后，我们就可以着手解决前面所说的问题了。</p> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416416643/-8680552266715191261.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

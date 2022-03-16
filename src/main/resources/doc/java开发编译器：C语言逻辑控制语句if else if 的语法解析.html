@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发编译器：C语言逻辑控制语句if else if 的语法解析</title>
+ <body> java开发编译器：C语言逻辑控制语句if else if 的语法解析</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>具体的代码讲解和演示过程请参看视频： <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发编译器</a></p> 
+ <p>从这节开始，我们看看解析器如何对逻辑控制语句，例如if else, for, while , do…while, goto 等语句进行相应的语法解析。</p> 
+ <h4 id="if-else-语句的语法解析">if else 语句的语法解析</h4> 
+ <p>我们先看看 if else 的语法定义：</p> 
+ <pre class="prettyprint"><code class="language-C hljs lasso">IF_STATEMENT <span class="hljs-subst">-&gt; </span><span class="hljs-keyword">IF</span> LP TEST RP STATEMENT
+IF_ELSE_STATEMENT <span class="hljs-subst">-&gt; </span>IF_STATEMENT
+IF_ELSE_STATEMENT <span class="hljs-subst">-&gt;</span>IF_ELSE_STATEMENT <span class="hljs-keyword">ELSE</span> STATEMENT
+STATEMENT <span class="hljs-subst">-&gt; </span>IF_ELSE_STATEMENT
+TEST <span class="hljs-subst">-&gt; </span>EXPR
+DECL <span class="hljs-subst">-&gt; </span>VAR_DECL EQUAL INITIALIZER 
+INITIALIZER <span class="hljs-subst">-&gt; </span>EXPR</code></pre> 
+ <p>如果C编译器遇到下面的语句： <br> if (i &lt; 0) <br> i = 1; <br> else if (i == 0) <br> i = 2; <br> else <br> i = 3;</p> 
+ <p>最开始的 if (i &lt; 0) 则对应表达式： <br> IF_STATEMENT -&gt; IF LP TEST RP STATEMENT <br> 括号中间的 i &lt; 0, 对应于语法中的TEST, 如果if 后面跟着else 关键字的话，像上面的例子， 那么代码: <br> if (i &lt; 0) <br> i = 1; <br> else <br> 这部分对应语法表达式： <br> IF_ELSE_STATEMENT -&gt;IF_ELSE_STATEMENT ELSE STATEMENT <br> 中的 IF_ELSE_STATEMENT ELSE 这部分， 剩下的部分： <br> if (i ==0) <br> i = 2; <br> else <br> i = 3; <br> 则对应 STATEMENT ， 其实这部分先是对应：</p> 
+ <p>IF_ELSE_STATEMENT -&gt;IF_ELSE_STATEMENT ELSE STATEMENT</p> 
+ <p>然后再由： <br> STATEMENT -&gt; IF_ELSE_STATEMENT <br> 回归到STATEMENT.</p> 
+ <p>下面我们看一个具体的分析实例：</p> 
+ <pre class="prettyprint"><code class="language-C hljs autohotkey">void f() {
+ int <span class="hljs-literal">a</span> = <span class="hljs-number">0</span><span class="hljs-comment">;</span>
+ int i = <span class="hljs-number">0</span><span class="hljs-comment">;</span>
+ <span class="hljs-keyword">if</span> (i &lt; <span class="hljs-number">1</span>)
+   <span class="hljs-literal">a</span> = <span class="hljs-number">1</span><span class="hljs-comment">;</span>
+ <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (i &lt; <span class="hljs-number">2</span>)
+   <span class="hljs-literal">a</span> = <span class="hljs-number">2</span><span class="hljs-comment">;</span>
+ <span class="hljs-keyword">else</span> 
+   <span class="hljs-literal">a</span> = <span class="hljs-number">3</span><span class="hljs-comment">;</span>
+}</code></pre> 
+ <p>对应语句： <br> int a = 0; <br> int i = 0; <br> 解析过程前面章节已经详细描述，这里不再分析，我们看看if 部分语句的分析：</p> 
+ <p>1： 读入关键字if, 返回标签IF <br> 2: 读入左括号，返回标签LP <br> 3: 读入变量i, 返回对应标签NAME,根据表达式: <br> UNARY -&gt; NAME <br> BINARY -&gt; UNARY <br> 进行递归 <br> 4：读入符号 &lt;, 得到标签 RELOP <br> 5: 读入数字1， 返回标签NUMBER <br> 6: 根据下面表达式进行连续递归： <br> UNARY -&gt; .NUMBER <br> BINARY -&gt; .UNARY <br> BINARY -&gt; .BINARY RELOP BINARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> EXPR -&gt; .NO_COMMA_EXPR <br> TEST -&gt; .EXPR <br> 也就是说括号内的表达式 i &lt; 0, 被推导为 TEST -&gt; EXPR</p> 
+ <p>7: 读入右括号LP, 如果变量i,返回标签NAME, 接着进行下面的表达式递归： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 8： 读入等号，得到标签 EQUAL, 继续读入数值1，然后根据下面表达式进行递归： <br> UNARY -&gt; .NUMBER <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 9： 此时满足表达式： <br> NO_COMMA_EXPR -&gt; .NO_COMMA_EXPR EQUAL NO_COMMA_EXPR <br> 因此根据该表达式再次递归。 <br> 然后再根据表达式： <br> EXPR -&gt; .NO_COMMA_EXPR <br> 进行递归。 <br> 10：读入分号，得到标签SEMI, 此时EXPR SEMI 正好构成表达式： <br> STATEMENT -&gt; .EXPR SEMI <br> 的右半部分，因此可以进行对应reduce操作。</p> 
+ <p>11： 此时解析堆栈上的所有符号就能满足表达式： <br> IF_STATEMENT -&gt; .IF LP TEST RP STATEMENT <br> 因此，当前解析的内容都对应非终结符IF_STATEMENT. 继续根据表达式： <br> IF_ELSE_STATEMENT -&gt; .IF_STATEMENT <br> 再递归一次。</p> 
+ <p>12： 接下来的else 后面部分，其解析过程跟前面解析if相关语句的流程是一样的。先把关键字else读入，得到标签ELSE. 后面又是if else 的重复，所以解析过程跟前面步骤是一样的。</p> 
+ <p>13： 读入最后一个else, 然后读入变量名i, 根据以下表达式进行递归： <br> UNARY -&gt; .NAME <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY <br> 14： 读入等号得到标签EQUAL, 读入数值3，根据下面表达式进行递归： <br> UNARY -&gt; .NUMBER <br> BINARY -&gt; .UNARY <br> NO_COMMA_EXPR -&gt; .BINARY</p> 
+ <p>15： 此时表达式： <br> NO_COMMA_EXPR -&gt; .NO_COMMA_EXPR EQUAL NO_COMMA_EXPR <br> 的右边可以满足，于是就可以进行对应的递归操作。 <br> 然后再次依赖表达式： <br> EXPR -&gt; .NO_COMMA_EXPR <br> 再进行一次递归。</p> 
+ <p>16：读入接下来的分号，得到标签SEMI,然后又可以根据下面表达式进行递归： <br> STATEMENT -&gt; .EXPR SEMI <br> 17：得到STATEMENT后，IF_ELSE_STATEMENT 的语法表达式右边部分又得到满足： <br> IF_ELSE_STATEMENT -&gt; .IF_ELSE_STATEMENT ELSE STATEMENT <br> 这样的话，整个if … else if … else …. 这段代码就全被上面的语法表达式给吸收了。</p> 
+ <p>18： 最后再跟进表达式： <br> STATEMENT -&gt; .IF_ELSE_STATEMENT <br> 进行递归，这也说明，if else 相关语法是对应于STATEMENT这个非终结符的。</p> 
+ <p>后续的解析流程跟前面分析的一样，最后解析器会进入到接收状态，这表明我们给的的语法能够正确的解析if else if 这种条件转移控制代码。</p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+
+   <link rel="stylesheet" href="main.css" />
+  <style type="text/css" > </style>
+ <title> java开发C语言解释器：实现指针直接读写</title>
+ <body> java开发C语言解释器：实现指针直接读写</body>
+<link rel="stylesheet" href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/ck_htmledit_views-03853629ec.css"> 
+<div id="content_views" class="markdown_views prism-atom-one-dark"> 
+ <svg xmlns="http://www.w3.org/2000/svg" style="display: none;"> <path stroke-linecap="round" d="M5,0 0,2.5 5,5z" id="raphael-marker-block" style="-webkit-tap-highlight-color: rgba(0, 0, 0, 0);"></path> 
+ </svg> 
+ <p>更详细的讲解和代码调试演示过程，请参看视频 <br> <a href="http://study.163.com/course/courseMain.htm?courseId=1002830012">用java开发C语言编译器</a></p> 
+ <p>上一节，我们实现了以数组的方式对指针指向的动态内存进行读写，本节，我们实现通过指针直接读写内存，完成本节代码后，我们的解释器能够解释执行下面的代码：</p> 
+ <pre class="prettyprint"><code class=" hljs perl">void main() {
+    char <span class="hljs-variable">*p</span>;
+    char <span class="hljs-variable">*p1</span>;
+    p = malloc(<span class="hljs-number">2</span>);
+    p1 = malloc(<span class="hljs-number">1</span>);
+    p1[<span class="hljs-number">0</span>] = <span class="hljs-number">0</span>;
+
+    <span class="hljs-variable">*(</span>p+<span class="hljs-number">0</span>) = <span class="hljs-number">1</span>;
+    <span class="hljs-variable">*(</span>p+<span class="hljs-number">1</span>) = <span class="hljs-number">2</span>;
+    <span class="hljs-variable">*(</span>p+<span class="hljs-number">2</span>) = <span class="hljs-number">3</span>;
+
+    <span class="hljs-keyword">printf</span>(<span class="hljs-string">"p[0] is : <span class="hljs-variable">%d</span>,  p[1] is : <span class="hljs-variable">%d</span>, p1[0] is :<span class="hljs-variable">%d</span>"</span>, <span class="hljs-variable">*(</span>p+<span class="hljs-number">0</span>), <span class="hljs-variable">*(</span>p+<span class="hljs-number">1</span>), p1[<span class="hljs-number">0</span>]);
+}</code></pre> 
+ <p>代码中，*(p+1) 就是通过指针p对内存进行直接读写，本节的目的就是使得解释器能够解释执行这样的语句。</p> 
+ <p>这种语句对应的语法表达式如下：</p> 
+ <pre class="prettyprint"><code class=" hljs haskell"><span class="hljs-type">UNARY</span> -&gt; <span class="hljs-type">EXPR</span>
+<span class="hljs-type">UNARY</span> -&gt; <span class="hljs-type">STAR</span> <span class="hljs-type">UNARY</span></code></pre> 
+ <p>括号以及里面的表达式对应的正是EXPR, *(p+1) 这一句代码对应的表达式就是UNARY -&gt; STAR UNARY</p> 
+ <p>当解释器读取到语句*(p+1)时，解释器先解释执行p+1, 它的做法是先把p对应的值读出来，由于p是指针变量，因此它的值是其对应的内存地址，然后计算p+1的值，把得到的结果当做内存地址，通过MemoryHeap对象获得该地址对应的字节数组，最后把对内存的读取或写入转换成对字节数值的读取或写入。</p> 
+ <p>解释器实现对*(p+1)此类语句的解析是在类UnaryExecutor.java中实现的，我们看看对应代码：</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">UnaryNodeExecutor</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">BaseExecutor</span>{<!-- --></span>
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> Object <span class="hljs-title">Execute</span>(ICodeNode root) {
+        executeChildren(root);
+
+        <span class="hljs-keyword">int</span> production = (Integer)root.getAttribute(ICodeKey.PRODUCTION); 
+        String text ;
+        Symbol symbol;
+        Object value;
+        ICodeNode child;
+
+        <span class="hljs-keyword">switch</span> (production) {
+        ...
+         <span class="hljs-keyword">case</span> CGrammarInitializer.Start_Unary_TO_Unary:
+            child = root.getChildren().get(<span class="hljs-number">0</span>); 
+            <span class="hljs-keyword">int</span> addr = (Integer)child.getAttribute(ICodeKey.VALUE); <span class="hljs-comment">//get mem addr</span>
+            MemoryHeap memHeap = MemoryHeap.getInstance();
+            Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; entry = memHeap.getMem(addr);
+            <span class="hljs-keyword">int</span> offset = addr - entry.getKey();
+            <span class="hljs-keyword">if</span> (entry != <span class="hljs-keyword">null</span>) {
+                <span class="hljs-keyword">byte</span>[] memByte = entry.getValue();
+                root.setAttribute(ICodeKey.VALUE, memByte[offset]);
+            }
+
+            DirectMemValueSetter directMemSetter = <span class="hljs-keyword">new</span> DirectMemValueSetter(addr);
+            root.setAttribute(ICodeKey.SYMBOL, directMemSetter);
+            <span class="hljs-keyword">break</span>;
+        ...
+        }</code></pre> 
+ <p>上面代码中： <br> child = root.getChildren().get(0); <br> int addr = (Integer)child.getAttribute(ICodeKey.VALUE); <br> 这两句的作用是获得p+1的结果，把该结果当做动态内存的读写地址， 然后通过MemoryHeap查找该地址对应的字节数组。</p> 
+ <p>p+1所对应的地址，不是所分配内存的起始地址，变量p对应的值才是内存的起始地址，如果p的值是10000， *(p+1)表示读取内存地址为10001处的字节数据，那么解释器会通过MemoryHeap，得到10000所对应的字节数组，然后读出该数组下标为1处的字节数据，该逻辑正是由下面的代码片段实现的。</p> 
+ <pre class="prettyprint"><code class=" hljs avrasm">MemoryHeap memHeap = MemoryHeap<span class="hljs-preprocessor">.getInstance</span>()<span class="hljs-comment">;</span>
+            Map<span class="hljs-preprocessor">.Entry</span>&lt;Integer, byte[]&gt; entry = memHeap<span class="hljs-preprocessor">.getMem</span>(addr)<span class="hljs-comment">;</span>
+            int offset = addr - entry<span class="hljs-preprocessor">.getKey</span>()<span class="hljs-comment">;</span>
+            if (entry != null) {
+                byte[] memByte = entry<span class="hljs-preprocessor">.getValue</span>()<span class="hljs-comment">;</span>
+                root<span class="hljs-preprocessor">.setAttribute</span>(ICodeKey<span class="hljs-preprocessor">.VALUE</span>, memByte[offset])<span class="hljs-comment">;</span>
+            }</code></pre> 
+ <p>*(p+1) = 1; 表示把1写入到内存地址10001处的字节，那么解释器通过MemoryHeap获得10000所对应的字节数组，然后把数值1写入到字节数组下标为1处的字节，这个写入逻辑是通过类DirectMemValueSetter来实现的，我们看看它的实现代码。</p> 
+ <pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">DirectMemValueSetter</span> <span class="hljs-keyword">implements</span> <span class="hljs-title">IValueSetter</span> {<!-- --></span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">int</span> memAddr = <span class="hljs-number">0</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-title">DirectMemValueSetter</span>(<span class="hljs-keyword">int</span> memAddr) {
+        <span class="hljs-keyword">this</span>.memAddr = memAddr;
+    }
+
+    <span class="hljs-annotation">@Override</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title">setValue</span>(Object obj) <span class="hljs-keyword">throws</span> Exception {
+        MemoryHeap memHeap = MemoryHeap.getInstance();
+        Map.Entry&lt;Integer, <span class="hljs-keyword">byte</span>[]&gt; entry = memHeap.getMem(memAddr);
+        <span class="hljs-keyword">byte</span>[] content = entry.getValue();
+        <span class="hljs-keyword">int</span> offset = memAddr - entry.getKey();
+        Integer i = (Integer)obj;
+        content[offset] = (<span class="hljs-keyword">byte</span>)(i &amp; <span class="hljs-number">0xFF</span>);
+    }
+
+}</code></pre> 
+ <p>该类的逻辑就是通过MemoryHeap对象找到对应的字节数组，然后把要写入的地址减去动态内存的入口地址，进而得到写入的地址偏移，这个偏移作为字节数组的下标，把数组写入到字节数组中。</p> 
+ <p>通过上面的代码，解释器便能够解释执行*(p+1)=1；这种通过指针直接读写内存的语句。</p> 
+ <p>我们给定的C程序中，存在一个故意设置的bug,就是内存越界读取，p指针对应的内存只有两个字节长，但*(p+2) = 3;是一种内存越界读写的情况，这条语句的作用是，把数值3写入到p1指针所对应的内存中，于是解释器执行上述代码后得到的输出结果是： <br> p[0] is : 1, p[1] is : 2, p1[0] is :3</p> 
+ <p>内存越界读写是C程序的一大弊病，大多数C语言开发的程序所出现的那些难以复现，难以调试的bug，几乎都是由于内存越界读写导致的。</p> 
+ <p>更加详细的代码讲解和调试演示过程，请参看视频。</p> 
+ <p>更多技术信息，包括操作系统，编译器，面试算法，机器学习，人工智能，请关照我的公众号： <br> <img src="img/1647416417674/3812714563689443499.jpg" alt="这里写图片描述" title=""></p> 
+</div> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/editerView/markdown_views-89f5acb30b.css" rel="stylesheet"> 
+<link href="https://csdnimg.cn/release/blogv2/dist/mdeditor/css/style-49037e4d27.css" rel="stylesheet"> </html>
