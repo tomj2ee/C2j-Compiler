@@ -87,7 +87,7 @@ public class BaseLoad {
 
     public   void writeIndex() throws IOException {
         //D:\all_project\github\C2j-Compiler\src\main\resources\doc
-        String url = "D:\\all_project\\github\\C2j-Compiler\\src\\main\\resources\\doc";
+        String url = "D:\\all_project\\github\\C2j-Compiler\\src\\main\\resources\\complier";
         File f = new File(url);
         File[] lst = f.listFiles();
         StringWriter writer = new StringWriter();

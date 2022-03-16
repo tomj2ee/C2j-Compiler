@@ -33,7 +33,8 @@ public class CnBlog  extends  BaseLoad{
 
     public static void main(String[] args) throws IOException {
         CnBlog b=    new CnBlog();
-        b.getUrlList();
+        //b.getUrlList();
+        b.writeIndex();
     }
 
 }
