@@ -1,6 +1,5 @@
 package test;
 
-import java.text.BreakIterator;
 import java.util.List;
 
 public class MyCompiler {
@@ -8,9 +7,10 @@ public class MyCompiler {
     //( 21 + 45) * 60 +350 /34;
     /**
      * stmt: exp
-     * exp: id opt id  |  '(' exp  ')'
-     * opt: '*' | '-' | '+' |  '/'
-     * id: [0-9]
+     * exp -> "(" list ")"
+     * exp -> exp  opt  exp
+     * opt -> '*' | '-' | '+' |  '/'
+     * exp -> number
      */
 
     private MyLex myLex;
@@ -31,7 +31,7 @@ public class MyCompiler {
         System.out.println("开始分析stmt ... ");
         for (; ; ) {
             MyToken token = getNextToken();
-            if (token.tokenType == MyToken.EOI || token.tokenType==MyToken.SEMI) {
+            if (token.tokenType == MyToken.EOI || token.tokenType == MyToken.SEMI) {
                 break;
             }
             exp();
@@ -51,18 +51,31 @@ public class MyCompiler {
     }
 
     private void exp() {
-        if (curToken.tokenType == MyToken.NUM_OR_ID) {
-            MyToken opt1 = getNextToken();
-            matchOpt();
-            MyToken id2 = getNextToken();
-            matchId(MyToken.NUM_OR_ID);
-        } else if (curToken.tokenType == MyToken.LP) {
+        if (curToken.tokenType == MyToken.LP) {
             getNextToken();
             exp();
             getNextToken();
             matchId(MyToken.RP);
-        }else if(curToken.tokenType==MyToken.SEMI){
+        } else if (curToken.tokenType == MyToken.NUM_OR_ID) {
+            MyToken opt1 = getNextToken();
+            if (opt1.tokenType == MyToken.SEMI) {
+                return;
+            }
+            matchOpt();
+            MyToken id2 = getNextToken();
+            matchId(MyToken.NUM_OR_ID);
+        } else if (curToken.tokenType == MyToken.PLUS
+                || curToken.tokenType == MyToken.DIV
+                || curToken.tokenType == MyToken.TIMES
+                || curToken.tokenType == MyToken.SUB
+
+        ) {
+            getNextToken();
+            exp();
+        } else {
+            throw new RuntimeException("不匹配的格式>" + curToken);
         }
+
     }
 
     private boolean matchOpt() {
@@ -76,6 +89,7 @@ public class MyCompiler {
         }
         return true;
     }
+
     private boolean matchId(int tokenType) {
         boolean ok = curToken.tokenType == tokenType;
         if (!ok) {
@@ -86,8 +100,8 @@ public class MyCompiler {
 
     public static void main(String[] args) {
         MyLex lex = new MyLex();
-        lex.setInput("( 21 + 45) * 60 +350 /34;");
-        MyCompiler compiler=new MyCompiler(lex);
+        lex.setInput("( 21 + 45)( 60 +350 )/( 34 +45)");
+        MyCompiler compiler = new MyCompiler(lex);
         compiler.compiler();
 
     }
