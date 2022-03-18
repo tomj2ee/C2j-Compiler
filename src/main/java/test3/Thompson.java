@@ -2,20 +2,20 @@ package test3;
 /*
     Thompson.java
         Compiler for Regular Expressions to Non-Deterministic Finite
-        Automata (NFA). Currently set to only work on regular expressions
+        Automata (NFA). Currently, set to only work on regular expressions
         with the alphabet of ['a','z'].
 
-        This works as a Left to Right comiler, giving precedence to the left
+        This works as a Left to Right compiler, giving precedence to the left
         characters over the right. Of course this is the weakest form of
         precedence in the compiler, after the operator precedence.
 
         Operator Syntax:
                 '|' for union (lowest precedence)
                 'ab' for some elements a and b to concat a and b. ie.
-                    concatentation done w/o operator. (middle precedence)
+                    concatenation done w/o operator. (middle precedence)
                 '*' for kleene star (highest precedence)
                 '(' & ')' for controlling precedence of operators
-    @author Derek S. Prijatelj
+    @author Derek S. Privately
 */
 import java.util.Scanner;
 import java.util.ArrayList;
