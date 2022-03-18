@@ -100,7 +100,7 @@ public class MyCompiler {
 
     public static void main(String[] args) {
         MyLex lex = new MyLex();
-        lex.setInput("( 21 + 45)( 60 +350 )/( 34 +45)");
+        lex.setInput(" (12+4)+ ( 21 + 45)( 60 +350 )/( 34 +45)");
         MyCompiler compiler = new MyCompiler(lex);
         compiler.compiler();
 
