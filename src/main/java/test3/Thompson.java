@@ -17,8 +17,9 @@ package test3;
                 '(' & ')' for controlling precedence of operators
     @author Derek S. Privately
 */
-import java.util.Scanner;
+
 import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.Stack;
 
 public class Thompson{
@@ -47,19 +48,19 @@ public class Thompson{
         public int final_state;
 
         public NFA(){
-            this.states = new ArrayList <Integer> ();
-            this.transitions = new ArrayList <Trans> ();
+            this.states = new ArrayList<>();
+            this.transitions = new ArrayList <> ();
             this.final_state = 0;
         }
         public NFA(int size){
-            this.states = new ArrayList <Integer> ();
-            this.transitions = new ArrayList <Trans> ();
+            this.states = new ArrayList<>();
+            this.transitions = new ArrayList<>();
             this.final_state = 0;
             this.setStateSize(size);
         }
         public NFA(char c){
-            this.states = new ArrayList<Integer> ();
-            this.transitions = new ArrayList <Trans> ();
+            this.states = new ArrayList<> ();
+            this.transitions = new ArrayList<>();
             this.setStateSize(2);
             this.final_state = 1;
             this.transitions.add(new Trans(0, 1, c));
@@ -86,7 +87,7 @@ public class Thompson{
         NFA result = new NFA(n.states.size()+2);
         result.transitions.add(new Trans(0, 1, 'E')); // new trans for q0
 
-        // copy existing transisitons
+        // copy existing transitions
         for (Trans t: n.transitions){
             result.transitions.add(new Trans(t.state_from + 1,
                     t.state_to + 1, t.trans_symbol));
@@ -119,7 +120,7 @@ public class Thompson{
                     t.state_to + n.states.size() - 1, t.trans_symbol));
         }
 
-        // take m and combine to n after erasing inital m state
+        // take m and combine to n after erasing initial m state
         for (Integer s: m.states){
             n.states.add(s + n.states.size() + 1);
         }
@@ -155,7 +156,7 @@ public class Thompson{
     }
 
     /*
-        union() - Lowest Precedence regular expression operator. Thompson
+        union() - The Lowest Precedence regular expression operator. Thompson
             algorithm for union (or).
     */
     public static NFA union(NFA n, NFA m){
@@ -164,7 +165,7 @@ public class Thompson{
         // the branching of q0 to beginning of n
         result.transitions.add(new Trans(0, 1, 'E'));
 
-        // copy existing transisitons of n
+        // copy existing transitions of n
         for (Trans t: n.transitions){
             result.transitions.add(new Trans(t.state_from + 1,
                     t.state_to + 1, t.trans_symbol));
@@ -177,7 +178,7 @@ public class Thompson{
         // the branching of q0 to beginning of m
         result.transitions.add(new Trans(0, n.states.size() + 1, 'E'));
 
-        // copy existing transisitons of m
+        // copy existing transitions of m
         for (Trans t: m.transitions){
             result.transitions.add(new Trans(t.state_from + n.states.size()
                     + 1, t.state_to + n.states.size() + 1, t.trans_symbol));
@@ -243,7 +244,7 @@ public class Thompson{
     }
 
     /*
-        compile() - compile given regualr expression into a NFA using
+        compile() - compile given regular expression into a NFA using
             Thompson Construction Algorithm. Will implement typical compiler
             stack model to simplify processing the string. This gives
             descending precedence to characters on the right.
@@ -254,9 +255,9 @@ public class Thompson{
             return new NFA(); // empty NFA if invalid regex
         }
 
-        Stack <Character> operators = new Stack <Character> ();
-        Stack <NFA> operands = new Stack <NFA> ();
-        Stack <NFA> concat_stack = new Stack <NFA> ();
+        Stack <Character> operators = new Stack <> ();
+        Stack <NFA> operands = new Stack <> ();
+        Stack <NFA> concat_stack = new Stack <> ();
         boolean ccflag = false; // concat flag
         char op, c; // current character of string
         int para_count = 0;
@@ -331,7 +332,7 @@ public class Thompson{
         }
         while (operators.size() > 0){
             if (operands.empty()){
-                System.out.println("Error: imbalanace in operands and "
+                System.out.println("Error: imbalance in operands and "
                         + "operators");
                 System.exit(1);
             }
